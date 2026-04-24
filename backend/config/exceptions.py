@@ -21,6 +21,7 @@ def _get_exception_map() -> dict[str, tuple[int, str]]:
     global _EXCEPTION_MAP
     if _EXCEPTION_MAP is None:
         from apps.accounts.exceptions import AccountNotFoundError, OnboardingAlreadyDoneError
+        from apps.goals.exceptions import GoalNotFoundError, GoalPermissionError
 
         _EXCEPTION_MAP = {
             f"{AccountNotFoundError.__module__}.{AccountNotFoundError.__name__}": (
@@ -30,6 +31,14 @@ def _get_exception_map() -> dict[str, tuple[int, str]]:
             f"{OnboardingAlreadyDoneError.__module__}.{OnboardingAlreadyDoneError.__name__}": (
                 status.HTTP_409_CONFLICT,
                 "ONBOARDING_ALREADY_DONE",
+            ),
+            f"{GoalNotFoundError.__module__}.{GoalNotFoundError.__name__}": (
+                status.HTTP_404_NOT_FOUND,
+                "GOAL_NOT_FOUND",
+            ),
+            f"{GoalPermissionError.__module__}.{GoalPermissionError.__name__}": (
+                status.HTTP_403_FORBIDDEN,
+                "GOAL_PERMISSION_DENIED",
             ),
         }
     return _EXCEPTION_MAP
