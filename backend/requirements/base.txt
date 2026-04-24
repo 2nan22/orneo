@@ -7,3 +7,5 @@ redis==5.*
 celery[redis]==5.*
 django-celery-beat==2.*
 gunicorn==22.*
+django-allauth[socialaccount]==65.*
+dj-rest-auth[with_social]==7.*

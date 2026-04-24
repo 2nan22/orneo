@@ -30,12 +30,27 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework.authtoken",
     "rest_framework_simplejwt",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.kakao",
+    "allauth.socialaccount.providers.naver",
+    "dj_rest_auth",
+    "dj_rest_auth.registration",
+    "django_celery_beat",
 ]
 
-LOCAL_APPS: list[str] = []
+LOCAL_APPS: list[str] = [
+    "apps.accounts",
+    "apps.goals",
+]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+AUTH_USER_MODEL = "accounts.CustomUser"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -43,6 +58,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -108,6 +124,48 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
     ],
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
+}
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+# django-allauth
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": env("GOOGLE_CLIENT_ID", default=""),
+            "secret": env("GOOGLE_CLIENT_SECRET", default=""),
+        },
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+    },
+    "kakao": {
+        "APP": {
+            "client_id": env("KAKAO_CLIENT_ID", default=""),
+            "secret": env("KAKAO_CLIENT_SECRET", default=""),
+        },
+    },
+    "naver": {
+        "APP": {
+            "client_id": env("NAVER_CLIENT_ID", default=""),
+            "secret": env("NAVER_CLIENT_SECRET", default=""),
+        },
+        "ADAPTER": "apps.accounts.adapters.NaverSocialAccountAdapter",
+    },
+}
+
+# dj-rest-auth
+REST_AUTH = {
+    "USE_JWT": True,
+    "JWT_AUTH_COOKIE": None,
+    "USER_DETAILS_SERIALIZER": "apps.accounts.serializers.UserProfileSerializer",
 }
 
 # SimpleJWT
