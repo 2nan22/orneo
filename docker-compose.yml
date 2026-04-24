@@ -122,6 +122,36 @@ services:
           cpus: "0.25"
           memory: 512M
 
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    image: orneo/backend:dev
+    container_name: orneo_celery_worker
+    restart: unless-stopped
+    command: celery -A config worker -l info
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+    volumes:
+      - ./backend:/app
+    networks:
+      - orneo_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
 networks:
   orneo_net:
     driver: bridge

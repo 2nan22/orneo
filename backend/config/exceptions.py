@@ -22,6 +22,11 @@ def _get_exception_map() -> dict[str, tuple[int, str]]:
     if _EXCEPTION_MAP is None:
         from apps.accounts.exceptions import AccountNotFoundError, OnboardingAlreadyDoneError
         from apps.goals.exceptions import GoalNotFoundError, GoalPermissionError
+        from apps.journal.exceptions import (
+            JournalAlreadyReviewedError,
+            JournalNotFoundError,
+            JournalPermissionError,
+        )
 
         _EXCEPTION_MAP = {
             f"{AccountNotFoundError.__module__}.{AccountNotFoundError.__name__}": (
@@ -39,6 +44,18 @@ def _get_exception_map() -> dict[str, tuple[int, str]]:
             f"{GoalPermissionError.__module__}.{GoalPermissionError.__name__}": (
                 status.HTTP_403_FORBIDDEN,
                 "GOAL_PERMISSION_DENIED",
+            ),
+            f"{JournalNotFoundError.__module__}.{JournalNotFoundError.__name__}": (
+                status.HTTP_404_NOT_FOUND,
+                "JOURNAL_NOT_FOUND",
+            ),
+            f"{JournalPermissionError.__module__}.{JournalPermissionError.__name__}": (
+                status.HTTP_403_FORBIDDEN,
+                "JOURNAL_PERMISSION_DENIED",
+            ),
+            f"{JournalAlreadyReviewedError.__module__}.{JournalAlreadyReviewedError.__name__}": (
+                status.HTTP_409_CONFLICT,
+                "JOURNAL_ALREADY_REVIEWED",
             ),
         }
     return _EXCEPTION_MAP
