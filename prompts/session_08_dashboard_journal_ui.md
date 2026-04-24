@@ -12,6 +12,8 @@
 ```
 Read .claude/CLAUDE.md
 Read .claude/rules/project_conventions.md
+Read .claude/memory/feedback_git_workflow.md
+Read .claude/rules/git_workflow.md
 ```
 
 ---
