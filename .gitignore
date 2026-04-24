@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+
+# Node
+node_modules/
+.next/
+.expo/
+
+# 환경 변수
+.env
+.env.*
+!.env.example
+
+# 로그
+logs/
+*.log
+*.log.*
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+.claude/
