@@ -27,6 +27,7 @@ def _get_exception_map() -> dict[str, tuple[int, str]]:
             JournalNotFoundError,
             JournalPermissionError,
         )
+        from apps.reports.exceptions import ReportAlreadyExistsError, ReportNotFoundError
 
         _EXCEPTION_MAP = {
             f"{AccountNotFoundError.__module__}.{AccountNotFoundError.__name__}": (
@@ -56,6 +57,14 @@ def _get_exception_map() -> dict[str, tuple[int, str]]:
             f"{JournalAlreadyReviewedError.__module__}.{JournalAlreadyReviewedError.__name__}": (
                 status.HTTP_409_CONFLICT,
                 "JOURNAL_ALREADY_REVIEWED",
+            ),
+            f"{ReportNotFoundError.__module__}.{ReportNotFoundError.__name__}": (
+                status.HTTP_404_NOT_FOUND,
+                "REPORT_NOT_FOUND",
+            ),
+            f"{ReportAlreadyExistsError.__module__}.{ReportAlreadyExistsError.__name__}": (
+                status.HTTP_409_CONFLICT,
+                "REPORT_ALREADY_EXISTS",
             ),
         }
     return _EXCEPTION_MAP
