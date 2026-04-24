@@ -7,7 +7,6 @@ import logging
 from datetime import date, timedelta
 
 from django.db import transaction
-from django.utils import timezone
 
 from apps.accounts.models import CustomUser
 from apps.reports.exceptions import ReportAlreadyExistsError
