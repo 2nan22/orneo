@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   ACCESS_TOKEN_COOKIE,
   ACCESS_TOKEN_MAX_AGE,
+  ONBOARDED_COOKIE,
   REFRESH_TOKEN_COOKIE,
   REFRESH_TOKEN_MAX_AGE,
   buildCookieHeader,
@@ -56,6 +57,25 @@ export async function POST(req: NextRequest) {
       "Set-Cookie",
       buildCookieHeader(REFRESH_TOKEN_COOKIE, data.refresh, REFRESH_TOKEN_MAX_AGE),
     );
+  }
+
+  // 프로필 조회로 온보딩 완료 여부 확인
+  try {
+    const profileRes = await fetch(`${DJANGO_URL}/api/v1/auth/profile/`, {
+      headers: { Authorization: `Bearer ${data.access}` },
+    });
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      const onboardedAt = profile?.data?.onboarded_at ?? profile?.onboarded_at;
+      if (onboardedAt) {
+        res.headers.append(
+          "Set-Cookie",
+          buildCookieHeader(ONBOARDED_COOKIE, "1", REFRESH_TOKEN_MAX_AGE),
+        );
+      }
+    }
+  } catch {
+    // 프로필 조회 실패는 무시 — middleware에서 /onboarding으로 안내
   }
 
   return res;

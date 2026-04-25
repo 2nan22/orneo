@@ -30,8 +30,15 @@ export type JournalEntry = {
   related_goal: number | null;
 };
 
+export type GoalCategory = "finance" | "housing" | "learning" | "routine";
+
 export type Goal = {
   id: number;
   title: string;
-  category: string;
+  description: string | null;
+  category: GoalCategory;
+  target_amount: number | null;
+  target_date: string | null;
+  progress: number;
+  created_at: string;
 };
