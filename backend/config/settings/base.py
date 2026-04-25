@@ -191,6 +191,19 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "generate-daily-actions-6am": {
+        "task": "apps.dashboard.tasks.generate_daily_actions_for_all_users",
+        "schedule": crontab(hour=6, minute=0),
+    },
+}
+
+# AI Service
+AI_SERVICE_URL = env("AI_SERVICE_URL", default="http://ai_service:8001")
+AI_SERVICE_SECRET = env("AI_SERVICE_SECRET", default="")
+
 # Logging
 LOGGING = {
     "version": 1,
