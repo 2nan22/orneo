@@ -5,49 +5,41 @@ from __future__ import annotations
 
 import logging
 
-from services.public_data.base import PublicDataClient
+import httpx
 
 logger = logging.getLogger(__name__)
 
-DART_BASE_URL = "https://opendart.fss.or.kr/api"
+DART_BASE_URL = "https://opendart.fss.or.kr/api/"
+DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 
 
-class DartDisclosureClient(PublicDataClient):
+class DartDisclosureClient:
     """OPEN DART 기업 공시 클라이언트.
 
     금융감독원 DART OpenAPI를 통해 기업 공시 목록을 조회한다.
-    이용허락범위 제한 없음 (상업적 활용 가능).
+
+    Args:
+        api_key: DART API 인증키 (DART_API_KEY).
     """
 
     def __init__(self, api_key: str) -> None:
-        super().__init__(api_key=api_key, base_url=DART_BASE_URL)
+        self._api_key = api_key
+        self._client: httpx.AsyncClient | None = None
 
-    async def fetch_raw(self, *, corp_code: str, bgn_de: str = "", end_de: str = "") -> dict:
-        """공시 목록 원본 데이터를 조회한다.
+    @property
+    def _http(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=DART_BASE_URL,
+                timeout=DEFAULT_TIMEOUT,
+            )
+        return self._client
 
-        Args:
-            corp_code: DART 기업 고유번호 (8자리).
-            bgn_de: 조회 시작일 YYYYMMDD.
-            end_de: 조회 종료일 YYYYMMDD.
-
-        Returns:
-            API 원본 응답 딕셔너리.
-        """
-        params: dict = {
-            "crtfc_key": self._api_key,
-            "corp_code": corp_code,
-            "page_no": "1",
-            "page_count": "10",
-        }
-        if bgn_de:
-            params["bgn_de"] = bgn_de
-        if end_de:
-            params["end_de"] = end_de
-
-        logger.debug("[DART API] 공시 조회 시작: corp_code=%s", corp_code)
-        response = await self.client.get("/list.json", params=params)
-        response.raise_for_status()
-        return response.json()
+    async def close(self) -> None:
+        """HTTP 클라이언트를 정리한다."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
     async def _fetch_corp_code(self, *, corp_name: str) -> str:
         """기업명으로 DART 고유번호를 조회한다.
@@ -63,7 +55,7 @@ class DartDisclosureClient(PublicDataClient):
         """
         params = {"crtfc_key": self._api_key, "corp_name": corp_name}
         logger.debug("[DART API] 기업코드 조회: corp_name=%s", corp_name)
-        response = await self.client.get("/company.json", params=params)
+        response = await self._http.get("company.json", params=params)
         response.raise_for_status()
         data = response.json()
 
@@ -93,7 +85,22 @@ class DartDisclosureClient(PublicDataClient):
             ValueError: 해당 기업명을 찾을 수 없는 경우.
         """
         corp_code = await self._fetch_corp_code(corp_name=corp_name)
-        raw = await self.fetch_raw(corp_code=corp_code, bgn_de=bgn_de, end_de=end_de)
+
+        params: dict = {
+            "crtfc_key": self._api_key,
+            "corp_code": corp_code,
+            "page_no": "1",
+            "page_count": "10",
+        }
+        if bgn_de:
+            params["bgn_de"] = bgn_de
+        if end_de:
+            params["end_de"] = end_de
+
+        logger.debug("[DART API] 공시 조회 시작: corp_code=%s", corp_code)
+        response = await self._http.get("list.json", params=params)
+        response.raise_for_status()
+        raw = response.json()
 
         if raw.get("status") not in ("000", "013"):
             raise ValueError(f"기업을 찾을 수 없습니다: {corp_name}")
@@ -105,7 +112,10 @@ class DartDisclosureClient(PublicDataClient):
                 "corp_name": item.get("corp_name", ""),
                 "report_name": item.get("report_nm", ""),
                 "receipt_date": item.get("rcept_dt", ""),
-                "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={item.get('rcept_no', '')}",
+                "url": (
+                    f"https://dart.fss.or.kr/dsaf001/main.do"
+                    f"?rcpNo={item.get('rcept_no', '')}"
+                ),
             }
             for item in items
         ]

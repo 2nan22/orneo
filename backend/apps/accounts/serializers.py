@@ -21,6 +21,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "risk_tolerance",
             "onboarded_at",
             "primary_provider",
+            "preferred_region",
+            "preferred_region_code",
+            "learning_interests",
             "created_at",
         ]
         read_only_fields = fields

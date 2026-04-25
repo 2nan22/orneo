@@ -1,5 +1,6 @@
 // frontend/src/components/journal/JournalCard.tsx
 import Card from "@/components/ui/Card";
+import DartDisclosureBadge from "./DartDisclosureBadge";
 import type { JournalEntry, JournalCategory } from "@/lib/types";
 
 const CATEGORY_META: Record<
@@ -56,6 +57,11 @@ export default function JournalCard({ entry, onReview }: Props) {
 
       {/* 제목 */}
       <h3 className="mb-1.5 font-semibold text-[var(--color-text)]">{entry.title}</h3>
+
+      {/* DART 공시 배지 — investment 카테고리만 */}
+      {entry.category === "investment" && (
+        <DartDisclosureBadge title={entry.title} />
+      )}
 
       {/* AI 요약 */}
       {summaryLoading ? (

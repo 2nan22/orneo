@@ -1,5 +1,6 @@
 // frontend/src/components/goals/GoalCard.tsx
 import Card from "@/components/ui/Card";
+import CourseSuggestionCard from "./CourseSuggestionCard";
 import type { Goal, GoalCategory } from "@/lib/types";
 
 const CATEGORY_META: Record<GoalCategory, { label: string; icon: string; color: string }> = {
@@ -68,6 +69,10 @@ export default function GoalCard({ goal }: GoalCardProps) {
           {progressPct}%
         </span>
       </div>
+
+      {goal.category === "learning" && (
+        <CourseSuggestionCard keyword={goal.title} />
+      )}
     </Card>
   );
 }

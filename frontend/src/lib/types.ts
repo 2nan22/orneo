@@ -2,6 +2,20 @@
 
 export type JournalCategory = "investment" | "housing" | "learning" | "routine";
 
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  subscription_plan: string;
+  risk_tolerance: string;
+  onboarded_at: string | null;
+  primary_provider: string;
+  preferred_region: string;
+  preferred_region_code: string;
+  learning_interests: string[];
+  created_at: string;
+};
+
 export type TodayAction = {
   id: number;
   text: string;
