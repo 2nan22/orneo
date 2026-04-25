@@ -1,4 +1,5 @@
 // frontend/src/components/journal/JournalCard.tsx
+import Card from "@/components/ui/Card";
 import type { JournalEntry, JournalCategory } from "@/lib/types";
 
 const CATEGORY_META: Record<
@@ -26,7 +27,13 @@ export default function JournalCard({ entry, onReview }: Props) {
   const summaryLoading = entry.ai_summary === null;
 
   return (
-    <div className="rounded-2xl bg-[var(--color-card)] p-5 shadow-sm transition-shadow hover:shadow-md">
+    <Card
+      interactive
+      as="article"
+      padding="md"
+      onClick={() => onReview(entry)}
+      className="p-5"
+    >
       {/* 상단 행: 카테고리 배지 + 복기 배지 */}
       <div className="mb-2 flex items-center justify-between gap-2">
         <span
@@ -41,12 +48,9 @@ export default function JournalCard({ entry, onReview }: Props) {
             복기 완료
           </span>
         ) : (
-          <button
-            onClick={() => onReview(entry)}
-            className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-100"
-          >
+          <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-500">
             복기 필요
-          </button>
+          </span>
         )}
       </div>
 
@@ -76,7 +80,7 @@ export default function JournalCard({ entry, onReview }: Props) {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          <span className="text-xs text-[var(--color-text-sub)]">AI가 요약을 생성 중입니다...</span>
+          <span className="text-xs text-[var(--color-text-sub)]">AI 요약 생성 중...</span>
         </div>
       ) : (
         <p className="line-clamp-2 text-sm text-[var(--color-text-sub)]">{entry.ai_summary}</p>
@@ -84,6 +88,6 @@ export default function JournalCard({ entry, onReview }: Props) {
 
       {/* 하단: 작성일 */}
       <p className="mt-3 text-xs text-[var(--color-text-sub)]">{formatDate(entry.created_at)}</p>
-    </div>
+    </Card>
   );
 }
