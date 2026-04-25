@@ -14,9 +14,9 @@ interface Props {
 
 const typeStyles: Record<ToastType, string> = {
   default: "bg-[var(--color-text)] text-white",
-  success: "bg-[var(--color-success)] text-white",
+  success: "bg-[var(--color-success)] text-[var(--color-text)]",
   error:   "bg-[var(--color-danger)] text-white",
-  warning: "bg-[var(--color-warning)] text-white",
+  warning: "bg-[var(--color-warning)] text-[var(--color-text)]",
   info:    "bg-[var(--color-primary)] text-white",
 };
 

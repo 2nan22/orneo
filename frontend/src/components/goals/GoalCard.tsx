@@ -1,4 +1,5 @@
 // frontend/src/components/goals/GoalCard.tsx
+import Card from "@/components/ui/Card";
 import type { Goal, GoalCategory } from "@/lib/types";
 
 const CATEGORY_META: Record<GoalCategory, { label: string; icon: string; color: string }> = {
@@ -27,7 +28,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
   const progressPct = Math.min(Math.round(goal.progress * 100), 100);
 
   return (
-    <div className="rounded-2xl bg-[var(--color-card)] p-5 shadow-sm transition-shadow hover:shadow-md">
+    <Card as="article" padding="lg" className="transition-shadow hover:shadow-md">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${meta.color}`}>
@@ -67,6 +68,6 @@ export default function GoalCard({ goal }: GoalCardProps) {
           {progressPct}%
         </span>
       </div>
-    </div>
+    </Card>
   );
 }
