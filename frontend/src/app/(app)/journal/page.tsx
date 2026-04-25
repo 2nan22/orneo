@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
 import CategoryTabs, { type CategoryFilter } from "@/components/journal/CategoryTabs";
 import JournalCard from "@/components/journal/JournalCard";
@@ -102,12 +103,12 @@ export default function JournalPage() {
           <span className="text-sm text-[var(--color-text-sub)]">불러오는 중...</span>
         </div>
       ) : entries.length === 0 ? (
-        <div className="rounded-2xl bg-[var(--color-card)] px-6 py-12 text-center shadow-sm">
+        <Card variant="outlined" className="py-12 text-center">
           <p className="text-sm text-[var(--color-text-sub)]">작성된 일지가 없습니다.</p>
           <Link href="/journal/new" className="mt-3 inline-block">
             <Button variant="outline" className="mt-3">첫 일지 작성하기</Button>
           </Link>
-        </div>
+        </Card>
       ) : (
         <div className="flex flex-col gap-3">
           {entries.map((entry) => (

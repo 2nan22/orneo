@@ -28,7 +28,7 @@ export default function CategoryTabs({ active, onChange }: Props) {
           className={[
             "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all",
             active === value
-              ? "bg-[var(--color-primary)] text-white"
+              ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-end)] text-white"
               : "bg-[var(--color-card)] text-[var(--color-text-sub)] hover:bg-[var(--color-border)]",
           ].join(" ")}
         >

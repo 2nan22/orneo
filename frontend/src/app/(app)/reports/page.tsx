@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { WeeklyReport } from "@/lib/types";
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
 
 function getPreviousMonday(): string {
@@ -72,22 +73,22 @@ export default function ReportsPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </div>
+        <Card variant="outlined" className="mb-4">
+          <p className="text-sm text-[var(--color-danger)]">{error}</p>
+        </Card>
       )}
 
       {report ? (
         <WeeklyReportCard report={report} />
       ) : (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-[var(--color-border)] py-16 text-center">
+        <Card variant="outlined" className="flex flex-col items-center gap-4 py-16 text-center">
           <p className="text-sm text-[var(--color-text-sub)]">
             아직 리포트가 없습니다. 매주 월요일에 자동 생성됩니다.
           </p>
           <Button variant="primary" onClick={handleGenerate} loading={generating}>
             지금 생성하기
           </Button>
-        </div>
+        </Card>
       )}
     </PageContainer>
   );

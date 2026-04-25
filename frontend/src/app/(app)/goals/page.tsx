@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import type { Goal, GoalCategory } from "@/lib/types";
 import GoalCard from "@/components/goals/GoalCard";
 import GoalCreateModal from "@/components/goals/GoalCreateModal";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
 
 type CategoryFilter = "all" | GoalCategory;
@@ -102,7 +104,7 @@ export default function GoalsPage() {
             className={[
               "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all",
               filter === value
-                ? "bg-[var(--color-primary)] text-white"
+                ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-end)] text-white"
                 : "bg-[var(--color-card)] text-[var(--color-text-sub)] hover:bg-[var(--color-border)]",
             ].join(" ")}
           >
@@ -117,15 +119,12 @@ export default function GoalsPage() {
           <span className="text-sm text-[var(--color-text-sub)]">불러오는 중...</span>
         </div>
       ) : displayed.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--color-border)]">
+        <Card variant="outlined" className="flex flex-col items-center justify-center py-10 text-center">
           <p className="text-sm text-[var(--color-text-sub)]">목표가 없습니다.</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="text-sm font-medium text-[var(--color-primary)] hover:underline"
-          >
-            첫 번째 목표를 만들어보세요
-          </button>
-        </div>
+          <Button variant="point" size="sm" onClick={() => setShowModal(true)} className="mt-3">
+            첫 번째 목표 만들기
+          </Button>
+        </Card>
       ) : (
         <div className="flex flex-col gap-3">
           {displayed.map((goal) => (
@@ -135,16 +134,18 @@ export default function GoalsPage() {
       )}
 
       {/* FAB */}
-      <button
+      <Button
+        variant="primary"
+        size="icon"
         onClick={() => setShowModal(true)}
-        className="fixed bottom-20 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-end)] text-white shadow-lg transition-transform hover:scale-105 active:scale-95 sm:bottom-8"
         aria-label="목표 추가"
+        className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] right-6 h-14 w-14 shadow-[var(--shadow-fab)] sm:bottom-8"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
-      </button>
+      </Button>
 
       {showModal && (
         <GoalCreateModal
