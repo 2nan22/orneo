@@ -20,7 +20,7 @@ const variantStyles: Record<Variant, string> = {
   danger:
     "text-white font-semibold bg-[var(--color-danger)] hover:opacity-90 active:opacity-80 focus-visible:ring-[var(--color-danger)]",
   point:
-    "text-white font-semibold bg-[var(--color-point)] hover:opacity-90 active:opacity-80 focus-visible:ring-[var(--color-point)]",
+    "text-[var(--color-text)] font-semibold bg-[var(--color-point)] hover:opacity-90 active:opacity-80 focus-visible:ring-[var(--color-point)]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
