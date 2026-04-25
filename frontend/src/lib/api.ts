@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// frontend/src/lib/api.ts
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
@@ -7,23 +7,23 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`/api/v1${path}`, {
     ...rest,
     headers: {
       "Content-Type": "application/json",
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    credentials: "include",
   });
 
-  const data = await res.json();
+  const json = await res.json();
 
   if (!res.ok) {
-    throw new Error(data?.message ?? `HTTP ${res.status}`);
+    throw new Error(json?.message ?? `HTTP ${res.status}`);
   }
 
-  return data as T;
+  // Django 표준 응답: { status: "success", data: {...} }
+  return (json?.data ?? json) as T;
 }
 
 export const api = {
