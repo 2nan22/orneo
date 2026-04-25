@@ -67,22 +67,15 @@ function Step1({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <label className="mb-2 block text-sm font-medium text-[var(--color-text)]">
-          월 저축 목표액
-        </label>
-        <div className="relative">
-          <Input
-            id="monthly_savings"
-            type="number"
-            placeholder="300000"
-            value={data.monthly_savings_goal || ""}
-            onChange={(e) => onChange({ monthly_savings_goal: Number(e.target.value) })}
-            className="pr-10"
-          />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-sub)]">
-            원
-          </span>
-        </div>
+        <Input
+          id="monthly_savings"
+          label="월 저축 목표액"
+          type="number"
+          placeholder="300000"
+          suffix={<span>원</span>}
+          value={data.monthly_savings_goal || ""}
+          onChange={(e) => onChange({ monthly_savings_goal: Number(e.target.value) })}
+        />
       </div>
 
       <div>
