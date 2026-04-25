@@ -12,13 +12,13 @@ const DJANGO_URL = process.env.DJANGO_INTERNAL_URL ?? "http://backend:8000";
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const REDIRECT_URI = `${APP_URL}/api/auth/callback/google`;
 
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  if (!body?.code) {
-    return NextResponse.json(
-      { status: "error", code: "INVALID_INPUT", message: "인증 코드가 없습니다." },
-      { status: 400 },
-    );
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl;
+  const code = searchParams.get("code");
+  const error = searchParams.get("error");
+
+  if (error || !code) {
+    return NextResponse.redirect(new URL("/login?error=cancelled", req.url));
   }
 
   let djangoRes: Response;
@@ -26,29 +26,20 @@ export async function POST(req: NextRequest) {
     djangoRes = await fetch(`${DJANGO_URL}/api/v1/auth/social/google/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: body.code, redirect_uri: REDIRECT_URI }),
+      body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
     });
   } catch {
-    return NextResponse.json(
-      { status: "error", code: "SERVICE_UNAVAILABLE", message: "서버에 연결할 수 없습니다." },
-      { status: 503 },
-    );
+    return NextResponse.redirect(new URL("/login?error=server", req.url));
   }
 
   const data = await djangoRes.json();
 
   if (!djangoRes.ok) {
-    return NextResponse.json(
-      {
-        status: "error",
-        code: data?.code ?? "SOCIAL_LOGIN_FAILED",
-        message: data?.message ?? data?.non_field_errors?.[0] ?? "소셜 로그인에 실패했습니다.",
-      },
-      { status: djangoRes.status },
-    );
+    return NextResponse.redirect(new URL("/login?error=auth_failed", req.url));
   }
 
-  const res = NextResponse.json({ status: "success" });
+  const destination = new URL("/dashboard", req.url);
+  const res = NextResponse.redirect(destination);
 
   res.headers.append(
     "Set-Cookie",
@@ -77,7 +68,7 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch {
-    // 프로필 조회 실패는 무시
+    // 프로필 조회 실패는 무시 — proxy가 /onboarding으로 안내
   }
 
   return res;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
-const REDIRECT_URI = `${APP_URL}/auth/callback/google`;
+const REDIRECT_URI = `${APP_URL}/api/auth/callback/google`;
 
 export async function GET() {
   if (!GOOGLE_CLIENT_ID) {
