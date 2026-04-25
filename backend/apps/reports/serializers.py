@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from rest_framework import serializers
 
 from apps.reports.models import WeeklyReport
@@ -37,8 +39,18 @@ class WeeklyReportGenerateSerializer(serializers.Serializer):
         help_text="리포트 생성 기준 주 시작일 (YYYY-MM-DD, 월요일).",
     )
 
-    def validate_week_start(self, value):
-        """week_start가 월요일인지 검증한다."""
+    def validate_week_start(self, value: date) -> date:
+        """week_start가 월요일인지 검증한다.
+
+        Args:
+            value: 검증할 날짜.
+
+        Returns:
+            검증된 날짜.
+
+        Raises:
+            serializers.ValidationError: 월요일이 아닌 경우.
+        """
         if value.weekday() != 0:
             raise serializers.ValidationError("week_start는 월요일(weekday=0)이어야 합니다.")
         return value
