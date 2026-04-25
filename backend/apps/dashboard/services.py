@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import CustomUser
+from apps.dashboard.selectors import get_active_goals
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +54,10 @@ def calculate_capital_score(*, user: CustomUser) -> CapitalScoreResult:
     Returns:
         CapitalScoreResult 계산 결과.
     """
-    from apps.goals.models import Goal, GoalCategory
+    from apps.goals.models import GoalCategory
     from apps.journal.selectors import get_recent_journal_count
 
-    active_goals = list(
-        Goal.objects.filter(user=user, is_active=True).values("category", "progress")
-    )
+    active_goals = get_active_goals(user_id=user.pk)
 
     financial_goals = [g for g in active_goals if g["category"] == GoalCategory.FINANCIAL]
     asset_stability_raw = (
