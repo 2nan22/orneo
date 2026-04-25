@@ -49,6 +49,7 @@ export default function ApartmentCard({ initialCode = "" }: Props) {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const isAtMax = year === maxYear && month === maxMonth;
 
@@ -63,13 +64,21 @@ export default function ApartmentCard({ initialCode = "" }: Props) {
 
     setLoading(true);
     setTransactions([]);
+    setApiError(null);
 
     fetch(
       `/api/public-data/apartments?lawd_cd=${selectedRegion.code}&deal_ymd=${toYmd(year, month)}`,
     )
-      .then((r) => r.json())
-      .then((json) => setTransactions((json?.data ?? []).slice(0, 5)))
-      .catch(() => setTransactions([]))
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok || json.status === "error") {
+          setApiError(json.message ?? "API 오류가 발생했습니다.");
+          setTransactions([]);
+        } else {
+          setTransactions((json?.data ?? []).slice(0, 5));
+        }
+      })
+      .catch(() => setApiError("서버에 연결할 수 없습니다."))
       .finally(() => setLoading(false));
   }, [selectedRegion, year, month]);
 
@@ -156,6 +165,10 @@ export default function ApartmentCard({ initialCode = "" }: Props) {
             <div key={i} className="h-10 rounded-lg bg-[var(--color-border)]" />
           ))}
         </div>
+      ) : apiError ? (
+        <p className="py-6 text-center text-xs text-[var(--color-danger)]">
+          {apiError}
+        </p>
       ) : transactions.length === 0 ? (
         <p className="py-6 text-center text-xs text-[var(--color-text-sub)]">
           해당 월 거래 내역이 없습니다.
