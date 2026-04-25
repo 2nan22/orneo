@@ -34,16 +34,16 @@ def get_user_goals(
     return qs
 
 
-def get_active_goals(*, user: CustomUser) -> QuerySet[Goal]:
+def get_active_goals(*, user_id: int) -> QuerySet[Goal]:
     """사용자의 활성 목표 목록을 반환한다.
 
     Args:
-        user: 조회 대상 사용자.
+        user_id: 조회 대상 사용자 PK.
 
     Returns:
         활성 Goal QuerySet.
     """
-    return Goal.objects.filter(user=user, is_active=True)
+    return Goal.objects.filter(user_id=user_id, is_active=True)
 
 
 def get_goal_or_raise(*, goal_id: int, user: CustomUser) -> Goal:
