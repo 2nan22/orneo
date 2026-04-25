@@ -24,9 +24,34 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://host.docker.internal:11434"
     gemma_model: str = "gemma4:e2b"
 
-    molit_api_key: str = ""
+    # 공공데이터포털 공통 인증키 (MOLIT + K-MOOC)
+    data_go_kr_service_key: str = ""
+
+    # DART API 키
     dart_api_key: str = ""
-    kmooc_api_key: str = ""
+
+    # MOLIT 부동산 실거래가 엔드포인트
+    molit_apt_trade_detail_endpoint: str = (
+        "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev"
+    )
+    molit_apt_trade_endpoint: str = (
+        "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade"
+    )
+    molit_apt_rent_endpoint: str = (
+        "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent"
+    )
+    molit_row_house_trade_endpoint: str = (
+        "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade"
+    )
+    molit_detached_house_trade_endpoint: str = (
+        "https://apis.data.go.kr/1613000/RTMSDataSvcSHTrade"
+    )
+    molit_officetel_trade_endpoint: str = (
+        "https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade"
+    )
+
+    # K-MOOC 강좌 엔드포인트
+    kmooc_lecture_endpoint: str = "https://apis.data.go.kr/B552881/kmooc_v2_0"
 
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 

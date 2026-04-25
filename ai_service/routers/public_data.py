@@ -39,15 +39,18 @@ async def get_apartment_transactions(
         실거래가 목록과 출처·면책 고지.
 
     Raises:
-        HTTPException: API 키 미설정 또는 외부 API 오류 시.
+        HTTPException: 인증키 미설정 또는 외부 API 오류 시.
     """
-    if not settings.molit_api_key:
+    if not settings.data_go_kr_service_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="MOLIT_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.",
+            detail="DATA_GO_KR_SERVICE_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.",
         )
 
-    client = MolitApartmentClient(api_key=settings.molit_api_key)
+    client = MolitApartmentClient(
+        service_key=settings.data_go_kr_service_key,
+        endpoint=settings.molit_apt_trade_detail_endpoint,
+    )
     try:
         transactions = await client.fetch_transactions(lawd_cd=lawd_cd, deal_ymd=deal_ymd)
         data = [
@@ -150,15 +153,18 @@ async def get_kmooc_courses(
         강좌 목록과 출처.
 
     Raises:
-        HTTPException: API 키 미설정 또는 외부 API 오류 시.
+        HTTPException: 인증키 미설정 또는 외부 API 오류 시.
     """
-    if not settings.kmooc_api_key:
+    if not settings.data_go_kr_service_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="KMOOC_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.",
+            detail="DATA_GO_KR_SERVICE_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.",
         )
 
-    client = KmoocCourseClient(api_key=settings.kmooc_api_key)
+    client = KmoocCourseClient(
+        service_key=settings.data_go_kr_service_key,
+        endpoint=settings.kmooc_lecture_endpoint,
+    )
     try:
         courses = await client.search_courses(keyword=keyword)
         return {

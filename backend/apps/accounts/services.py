@@ -36,8 +36,13 @@ def complete_onboarding(*, user: CustomUser, data: dict) -> CustomUser:
 
     risk_tolerance = data.get("risk_tolerance", RiskTolerance.MODERATE)
     user.risk_tolerance = risk_tolerance
+    user.preferred_region = data.get("desired_region", "")
+    user.learning_interests = data.get("learning_interests", [])
     user.onboarded_at = timezone.now()
-    user.save(update_fields=["risk_tolerance", "onboarded_at", "updated_at"])
+    user.save(update_fields=[
+        "risk_tolerance", "preferred_region", "learning_interests",
+        "onboarded_at", "updated_at",
+    ])
 
     logger.info("온보딩 완료: user_id=%d", user.pk)
     return user
