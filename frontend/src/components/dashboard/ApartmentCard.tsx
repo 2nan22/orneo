@@ -22,6 +22,7 @@ interface Props {
 export default function ApartmentCard({ lawdCd, dealYmd, regionName }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchedYmd, setFetchedYmd] = useState(dealYmd);
 
   useEffect(() => {
     if (!lawdCd) {
@@ -29,17 +30,49 @@ export default function ApartmentCard({ lawdCd, dealYmd, regionName }: Props) {
       return;
     }
 
-    fetch(`/api/public-data/apartments?lawd_cd=${lawdCd}&deal_ymd=${dealYmd}`)
-      .then((r) => r.json())
-      .then((json) => setTransactions((json?.data ?? []).slice(0, 5)))
-      .catch(() => setTransactions([]))
-      .finally(() => setLoading(false));
+    // 당월 조회 → 0건이면 전월로 자동 fallback
+    async function fetchTransactions(ymd: string): Promise<{ data: Transaction[] }> {
+      const res = await fetch(`/api/public-data/apartments?lawd_cd=${lawdCd}&deal_ymd=${ymd}`);
+      return res.json();
+    }
+
+    async function load() {
+      try {
+        const json = await fetchTransactions(dealYmd);
+        const items: Transaction[] = (json?.data ?? []).slice(0, 5);
+
+        if (items.length === 0) {
+          // 전월 계산: YYYYMM → Date 객체
+          const year = parseInt(dealYmd.slice(0, 4), 10);
+          const month = parseInt(dealYmd.slice(4), 10); // 1-indexed
+          const prevDate = new Date(year, month - 2, 1); // month-2: JS month is 0-indexed, we subtract 1 more
+          const prevYmd =
+            String(prevDate.getFullYear()) +
+            String(prevDate.getMonth() + 1).padStart(2, "0");
+
+          const prevJson = await fetchTransactions(prevYmd);
+          const prevItems: Transaction[] = (prevJson?.data ?? []).slice(0, 5);
+          setTransactions(prevItems);
+          setFetchedYmd(prevYmd);
+        } else {
+          setTransactions(items);
+          setFetchedYmd(dealYmd);
+        }
+      } catch {
+        setTransactions([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
   }, [lawdCd, dealYmd]);
 
-  if (!lawdCd || (!loading && transactions.length === 0)) return null;
+  // lawdCd 없으면 렌더하지 않음
+  if (!lawdCd) return null;
 
-  const year = dealYmd.slice(0, 4);
-  const month = dealYmd.slice(4);
+  const year = fetchedYmd.slice(0, 4);
+  const month = fetchedYmd.slice(4);
 
   return (
     <Card padding="md">
@@ -58,6 +91,10 @@ export default function ApartmentCard({ lawdCd, dealYmd, regionName }: Props) {
             <div key={i} className="h-10 rounded-lg bg-[var(--color-border)]" />
           ))}
         </div>
+      ) : transactions.length === 0 ? (
+        <p className="py-4 text-center text-xs text-[var(--color-text-sub)]">
+          해당 지역 최근 거래 내역이 없습니다.
+        </p>
       ) : (
         <div className="flex flex-col gap-1.5">
           {transactions.map((t, i) => (
