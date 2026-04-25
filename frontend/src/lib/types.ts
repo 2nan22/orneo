@@ -5,6 +5,7 @@ export type JournalCategory = "investment" | "housing" | "learning" | "routine";
 export type TodayAction = {
   id: number;
   text: string;
+  category: string;
   completed: boolean;
 };
 

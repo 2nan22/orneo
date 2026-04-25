@@ -21,6 +21,13 @@ FALLBACK_ACTIONS: list[str] = [
     "K-MOOC 강좌 20분 학습하기",
 ]
 
+FALLBACK_ACTIONS_ITEMS: list[dict] = [
+    {"text": "목표 진척도 5분 점검", "category": "general"},
+    {"text": "오늘 지출 1건 기록", "category": "financial"},
+    {"text": "K-MOOC 20분 학습", "category": "learning"},
+]
+FALLBACK_KEY_QUESTION = "오늘 내 행동이 중장기 목표에 얼마나 기여하나요?"
+
 
 @dataclass
 class CoachResult:
@@ -28,6 +35,15 @@ class CoachResult:
 
     summary: str
     actions: list[str]
+    model_used: str
+
+
+@dataclass
+class DailyActionsResult:
+    """일일 행동 생성 결과."""
+
+    actions: list[dict]
+    key_question: str
     model_used: str
 
 
@@ -142,6 +158,114 @@ class GemmaClient:
             actions = FALLBACK_ACTIONS[:3]
 
         return summary, actions[:3]
+
+    async def generate_daily_actions(
+        self,
+        goals: list[dict],
+        recent_summaries: list[str],
+        risk_tolerance: str,
+    ) -> DailyActionsResult:
+        """목표와 최근 일지를 바탕으로 오늘 할 행동 3개와 핵심 질문을 생성한다.
+
+        Args:
+            goals: 활성 목표 목록 (category, title, progress).
+            recent_summaries: 최근 3일 일지 요약 목록.
+            risk_tolerance: 사용자 투자 성향.
+
+        Returns:
+            DailyActionsResult 행동·질문·모델명.
+        """
+        prompt = self._build_daily_actions_prompt(goals, recent_summaries, risk_tolerance)
+        try:
+            response = await self._client.post(
+                OLLAMA_GENERATE_URL,
+                json={
+                    "model": self._model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.4, "num_predict": 400},
+                },
+            )
+            response.raise_for_status()
+            raw_text = response.json().get("response", "")
+            actions, key_question = self._parse_daily_actions(raw_text)
+            return DailyActionsResult(actions=actions, key_question=key_question, model_used=self._model)
+        except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+            logger.warning("Gemma daily-actions 호출 실패, fallback 반환: %s", exc)
+            return DailyActionsResult(
+                actions=FALLBACK_ACTIONS_ITEMS,
+                key_question=FALLBACK_KEY_QUESTION,
+                model_used="fallback",
+            )
+
+    def _build_daily_actions_prompt(
+        self,
+        goals: list[dict],
+        summaries: list[str],
+        risk: str,
+    ) -> str:
+        """일일 행동 생성 프롬프트를 구성한다.
+
+        Args:
+            goals: 활성 목표 목록.
+            summaries: 최근 일지 요약 목록.
+            risk: 투자 성향.
+
+        Returns:
+            완성된 프롬프트 문자열.
+        """
+        goals_str = "\n".join(
+            f"- [{g['category']}] {g['title']} (진척도: {int(g['progress'] * 100)}%)"
+            for g in goals
+        ) or "활성 목표 없음"
+        summaries_str = "\n".join(f"- {s}" for s in summaries) or "최근 일지 없음"
+        return f"""당신은 개인 라이프 코치입니다. 한국어로 답변하세요.
+
+[사용자 목표]
+{goals_str}
+
+[최근 일지 요약]
+{summaries_str}
+
+[투자 성향] {risk}
+
+위 정보를 바탕으로 오늘 취할 구체적 행동 3개와 핵심 질문 1개를 생성하세요.
+각 행동은 30자 이내, 오늘 당장 실행 가능한 것으로 작성하세요.
+
+형식:
+행동1: (행동 설명) | 카테고리: (financial/housing/learning/routine/general 중 하나)
+행동2: (행동 설명) | 카테고리: (카테고리)
+행동3: (행동 설명) | 카테고리: (카테고리)
+핵심질문: (오늘 스스로에게 던질 핵심 질문)"""
+
+    def _parse_daily_actions(self, raw: str) -> tuple[list[dict], str]:
+        """Gemma 응답에서 행동 목록과 핵심 질문을 파싱한다.
+
+        Args:
+            raw: Gemma 원본 응답 텍스트.
+
+        Returns:
+            (actions, key_question) 튜플.
+        """
+        lines = [line.strip() for line in raw.strip().splitlines() if line.strip()]
+        actions: list[dict] = []
+        key_question = FALLBACK_KEY_QUESTION
+
+        for line in lines:
+            if line.startswith("행동") and "|" in line:
+                parts = line.split("|", 1)
+                text = parts[0].split(":", 1)[1].strip() if ":" in parts[0] else parts[0].strip()
+                category = "general"
+                if len(parts) > 1 and "카테고리:" in parts[1]:
+                    category = parts[1].split("카테고리:", 1)[1].strip().lower()
+                actions.append({"text": text, "category": category})
+            elif line.startswith("핵심질문:"):
+                key_question = line.removeprefix("핵심질문:").strip()
+
+        if len(actions) < 3:
+            actions = FALLBACK_ACTIONS_ITEMS
+
+        return actions[:3], key_question
 
     async def close(self) -> None:
         """HTTP 클라이언트 정리."""

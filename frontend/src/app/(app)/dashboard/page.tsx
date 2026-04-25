@@ -38,7 +38,7 @@ export default function DashboardPage() {
   }, [fetchDashboard]);
 
   async function handleToggleAction(id: number, completed: boolean) {
-    await api.patch(`/dashboard/actions/${id}/`, { completed });
+    await api.patch("/dashboard", { action_id: id, completed });
   }
 
   if (loading) {
