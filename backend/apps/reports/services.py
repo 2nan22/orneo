@@ -36,9 +36,9 @@ def _calculate_goal_achievement_rate(user: CustomUser) -> float:
     Returns:
         달성률 (0.0~1.0). 활성 목표가 없으면 0.0.
     """
-    from apps.goals.models import Goal
+    from apps.goals.selectors import get_active_goals
 
-    active_goals = list(Goal.objects.filter(user=user, is_active=True).values("progress"))
+    active_goals = list(get_active_goals(user_id=user.pk).values("progress"))
     if not active_goals:
         return 0.0
     achieved = sum(1 for g in active_goals if g["progress"] >= 1.0)
@@ -63,13 +63,9 @@ def _calculate_action_completion_rate(
     Returns:
         (journal_count, action_completion_rate) 튜플.
     """
-    from apps.journal.models import JournalEntry
+    from apps.journal.selectors import get_week_journals
 
-    week_journals = JournalEntry.objects.filter(
-        user=user,
-        created_at__date__gte=week_start,
-        created_at__date__lte=week_end,
-    )
+    week_journals = get_week_journals(user_id=user.pk, week_start=week_start, week_end=week_end)
     journal_count = week_journals.count()
 
     with_actions = week_journals.exclude(action_items=[])
@@ -166,7 +162,7 @@ def generate_weekly_report(
             f"해당 주차 리포트가 이미 존재합니다: user_id={user.pk} week_start={week_start}"
         )
 
-    week_end = week_start + timedelta(days=6)
+    _, week_end = _get_week_bounds(week_start)
 
     goal_achievement_rate = _calculate_goal_achievement_rate(user)
     journal_count, action_completion_rate = _calculate_action_completion_rate(

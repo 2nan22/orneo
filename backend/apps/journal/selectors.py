@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from django.db.models import QuerySet
 from django.utils import timezone
 
@@ -51,6 +53,29 @@ def get_unreviewed_journals(*, user_id: int) -> QuerySet[JournalEntry]:
         미복기 JournalEntry QuerySet.
     """
     return JournalEntry.objects.filter(user_id=user_id, reviewed_at__isnull=True)
+
+
+def get_week_journals(
+    *,
+    user_id: int,
+    week_start: date,
+    week_end: date,
+) -> QuerySet[JournalEntry]:
+    """해당 주에 작성된 일지 목록을 반환한다.
+
+    Args:
+        user_id: 사용자 PK.
+        week_start: 주 시작일 (inclusive).
+        week_end: 주 종료일 (inclusive).
+
+    Returns:
+        JournalEntry QuerySet.
+    """
+    return JournalEntry.objects.filter(
+        user_id=user_id,
+        created_at__date__gte=week_start,
+        created_at__date__lte=week_end,
+    )
 
 
 def get_recent_journal_count(*, user_id: int, days: int = 7) -> int:
