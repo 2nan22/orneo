@@ -2,17 +2,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const SERVICE_KEY = process.env.DATA_GO_KR_SERVICE_KEY ?? "";
+const MOLIT_BASE  = "https://apis.data.go.kr/1613000";
 
-// .env 인라인 주석 제거 (예: "https://...Dev  # 아파트 매매 상세")
-const BASE_ENDPOINT = (
-  process.env.MOLIT_APT_TRADE_DETAIL_ENDPOINT ??
-  "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev"
-).split(/\s+#/)[0].trim();
+const SERVICE_MAP = {
+  apt:  "RTMSDataSvcAptTradeDev",
+  offi: "RTMSDataSvcOffiTradeDev",
+  rh:   "RTMSDataSvcRHTradeDev",
+  sh:   "RTMSDataSvcSHTradeDev",
+} as const;
+type PropertyType = keyof typeof SERVICE_MAP;
+
+const ROWS_PER_PAGE = 10;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const lawd_cd  = searchParams.get("lawd_cd");
   const deal_ymd = searchParams.get("deal_ymd");
+  const typeParam = searchParams.get("type") ?? "apt";
+  const pageParam = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
 
   if (!lawd_cd || !deal_ymd) {
     return NextResponse.json(
@@ -28,20 +35,21 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 서비스명에서 action 이름 추출: RTMSDataSvcAptTradeDev → getRTMSDataSvcAptTradeDev
-  const serviceName = BASE_ENDPOINT.split("/").pop() ?? "";
+  const propertyType: PropertyType = (typeParam in SERVICE_MAP)
+    ? (typeParam as PropertyType)
+    : "apt";
+  const serviceName = SERVICE_MAP[propertyType];
 
   // 서비스 키는 base64 raw 값(+, = 포함)이므로 encodeURIComponent 필수.
   // URLSearchParams에 넣으면 + → %2B → 다시 %252B 이중 인코딩 발생.
-  // 키만 별도로 encodeURIComponent 적용 후 직접 삽입한다.
   const otherParams = new URLSearchParams({
     LAWD_CD:   lawd_cd,
     DEAL_YMD:  deal_ymd,
-    numOfRows: "100",
-    pageNo:    "1",
+    numOfRows: String(ROWS_PER_PAGE),
+    pageNo:    String(pageParam),
   });
   const fullUrl =
-    `${BASE_ENDPOINT}/get${serviceName}?serviceKey=${encodeURIComponent(SERVICE_KEY)}&${otherParams.toString()}`;
+    `${MOLIT_BASE}/${serviceName}/get${serviceName}?serviceKey=${encodeURIComponent(SERVICE_KEY)}&${otherParams.toString()}`;
 
   try {
     const res  = await fetch(fullUrl, { cache: "no-store" });
@@ -64,6 +72,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const totalCount = parseInt(
+      text.match(/<totalCount>(\d+)<\/totalCount>/)?.[1] ?? "0",
+      10,
+    );
+
     // XML <item> 블록을 파싱해 필드 맵 배열로 변환
     const items: Record<string, string>[] = [];
     const itemPattern = /<item>([\s\S]*?)<\/item>/g;
@@ -83,10 +96,12 @@ export async function GET(req: NextRequest) {
         try {
           return {
             deal_amount:    parseInt((item.dealAmount ?? "0").replace(/,/g, ""), 10),
-            area:           parseFloat(item.excluUseAr ?? "0"),
+            // 단독·다가구는 totalFloorAr(연면적) 사용, 나머지는 excluUseAr(전용면적)
+            area:           parseFloat(item.excluUseAr ?? item.totalFloorAr ?? "0"),
             floor:          parseInt(item.floor ?? "0", 10),
             deal_date:      `${item.dealYear}-${(item.dealMonth ?? "1").padStart(2, "0")}-${(item.dealDay ?? "1").padStart(2, "0")}`,
-            apartment_name: item.aptNm ?? "",
+            // 유형별 건물명 필드: 아파트→aptNm, 오피스텔→offiNm, 연립→mhouseNm, 단독→houseType
+            apartment_name: item.aptNm ?? item.offiNm ?? item.mhouseNm ?? item.houseType ?? "",
             road_name:      item.roadNm ?? "",
             legal_dong:     item.umdNm ?? "",
             build_year:     parseInt(item.buildYear ?? "0", 10),
@@ -97,7 +112,7 @@ export async function GET(req: NextRequest) {
       })
       .filter(Boolean);
 
-    return NextResponse.json({ status: "success", data });
+    return NextResponse.json({ status: "success", data, page: pageParam, total_count: totalCount });
   } catch (err) {
     return NextResponse.json(
       { status: "error", message: `조회 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}` },
