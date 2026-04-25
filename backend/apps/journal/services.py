@@ -58,9 +58,28 @@ def create_journal(
 
 def _enqueue_summary_task(journal_id: int) -> None:
     """AI 요약 Celery 태스크를 큐에 등록한다."""
-    from apps.journal.tasks import generate_journal_summary  # noqa: PLC0415
+    # tasks.py → services.py 순환 임포트 방지를 위해 지연 임포트
+    from apps.journal.tasks import generate_journal_summary
 
     generate_journal_summary.delay(journal_id)
+
+
+def _get_journal_or_raise(journal_id: int) -> JournalEntry:
+    """일지를 조회하거나 JournalNotFoundError를 발생시킨다.
+
+    Args:
+        journal_id: 일지 PK.
+
+    Returns:
+        조회된 JournalEntry 인스턴스.
+
+    Raises:
+        JournalNotFoundError: 일지가 존재하지 않는 경우.
+    """
+    entry = get_journal_by_id(journal_id=journal_id)
+    if entry is None:
+        raise JournalNotFoundError(f"일지를 찾을 수 없습니다: id={journal_id}")
+    return entry
 
 
 @transaction.atomic
@@ -85,9 +104,7 @@ def mark_reviewed(
         JournalPermissionError: 다른 사용자의 일지에 접근하는 경우.
         JournalAlreadyReviewedError: 이미 복기된 일지인 경우.
     """
-    entry = get_journal_by_id(journal_id=journal_id)
-    if entry is None:
-        raise JournalNotFoundError(f"일지를 찾을 수 없습니다: id={journal_id}")
+    entry = _get_journal_or_raise(journal_id=journal_id)
     if entry.user_id != user.pk:
         raise JournalPermissionError("접근 권한이 없습니다.")
     if entry.reviewed_at is not None:
