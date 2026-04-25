@@ -32,6 +32,13 @@ export type DashboardData = {
   today_actions: TodayAction[];
 };
 
+export type DecisionScenarioData = {
+  topic: string;
+  evidence_chips: string[];
+  scenarios: Array<{ id: string; title: string; risk: string; description: string }>;
+  disclaimer: string;
+};
+
 export type JournalEntry = {
   id: number;
   category: JournalCategory;
@@ -43,6 +50,7 @@ export type JournalEntry = {
   review_memo: string | null;
   created_at: string;
   related_goal: number | null;
+  decision_scenario?: DecisionScenarioData | null;
 };
 
 export type GoalCategory = "finance" | "housing" | "learning" | "routine";
