@@ -39,3 +39,68 @@ class CapitalScoreSnapshot(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.score_date}] user_id={self.user_id} score={self.capital_score}"
+
+
+class TodayAction(models.Model):
+    """사용자의 오늘 할 행동.
+
+    Attributes:
+        user: 행동 소유자.
+        text: 행동 설명.
+        category: 행동 카테고리.
+        completed: 완료 여부.
+        action_date: 행동 대상 날짜.
+        created_at: 생성 시각.
+    """
+
+    user = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.CASCADE,
+        related_name="today_actions",
+    )
+    text = models.CharField(max_length=200)
+    category = models.CharField(
+        max_length=20,
+        default="general",
+        help_text="financial/housing/learning/routine/general",
+    )
+    completed = models.BooleanField(default=False)
+    action_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "오늘의 행동"
+        verbose_name_plural = "오늘의 행동 목록"
+
+    def __str__(self) -> str:
+        return f"[{self.action_date}] {self.text[:30]} (user_id={self.user_id})"
+
+
+class DailyKeyQuestion(models.Model):
+    """오늘의 핵심 질문.
+
+    Attributes:
+        user: 질문 소유자.
+        question: 핵심 질문 텍스트.
+        question_date: 질문 대상 날짜.
+        created_at: 생성 시각.
+    """
+
+    user = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.CASCADE,
+        related_name="daily_questions",
+    )
+    question = models.TextField()
+    question_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-question_date"]
+        unique_together = [("user", "question_date")]
+        verbose_name = "오늘의 핵심 질문"
+        verbose_name_plural = "오늘의 핵심 질문 목록"
+
+    def __str__(self) -> str:
+        return f"[{self.question_date}] user_id={self.user_id}"

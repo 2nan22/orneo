@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.dashboard.models import CapitalScoreSnapshot
+from apps.dashboard.models import CapitalScoreSnapshot, DailyKeyQuestion, TodayAction
 
 
 @admin.register(CapitalScoreSnapshot)
@@ -17,3 +17,21 @@ class CapitalScoreSnapshotAdmin(admin.ModelAdmin):
     search_fields = ["user__email"]
     readonly_fields = ["capital_score", "asset_stability", "goal_progress", "routine_score", "created_at"]
     ordering = ["-score_date"]
+
+
+@admin.register(TodayAction)
+class TodayActionAdmin(admin.ModelAdmin):
+    """오늘의 행동 Admin."""
+
+    list_display = ["id", "user", "text", "category", "completed", "action_date"]
+    list_filter = ["action_date", "category", "completed"]
+    search_fields = ["user__email", "text"]
+
+
+@admin.register(DailyKeyQuestion)
+class DailyKeyQuestionAdmin(admin.ModelAdmin):
+    """오늘의 핵심 질문 Admin."""
+
+    list_display = ["id", "user", "question_date", "question"]
+    list_filter = ["question_date"]
+    search_fields = ["user__email"]
