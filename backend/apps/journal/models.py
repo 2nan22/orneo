@@ -67,3 +67,36 @@ class JournalEntry(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.category}] {self.title} (user_id={self.user_id})"
+
+
+class DecisionScenario(models.Model):
+    """AI가 생성한 의사결정 시나리오.
+
+    JournalEntry와 1:1 관계. 동일 일지에 대해 중복 생성 방지.
+
+    Attributes:
+        journal_entry: 연결된 일지.
+        topic: 의사결정 주제.
+        evidence_chips: 근거 데이터 칩 레이블 목록.
+        scenarios: A/B/C 시나리오 목록 (JSON).
+        model_used: 생성에 사용된 모델명.
+        generated_at: 생성 시각.
+    """
+
+    journal_entry = models.OneToOneField(
+        JournalEntry,
+        on_delete=models.CASCADE,
+        related_name="decision_scenario",
+    )
+    topic = models.CharField(max_length=200)
+    evidence_chips = models.JSONField(default=list)
+    scenarios = models.JSONField(default=list)
+    model_used = models.CharField(max_length=50, default="gemma4:e2b")
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "의사결정 시나리오"
+        verbose_name_plural = "의사결정 시나리오 목록"
+
+    def __str__(self) -> str:
+        return f"[Scenario] journal_id={self.journal_entry_id}: {self.topic[:30]}"

@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
+import DecisionStudio from "./DecisionStudio";
 import type { JournalEntry } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -88,6 +89,28 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
           <div className="mx-6 mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
             <p className="mb-1 text-xs font-semibold text-[var(--color-point)]">AI 요약</p>
             <p className="text-sm text-[var(--color-text-sub)]">{entry.ai_summary}</p>
+          </div>
+        )}
+
+        {/* DecisionStudio — investment·housing 카테고리만 표시 */}
+        {(entry.category === "investment" || entry.category === "housing") && (
+          <div className="mx-6 mt-3">
+            {entry.decision_scenario ? (
+              <DecisionStudio
+                topic={entry.decision_scenario.topic}
+                evidenceChips={entry.decision_scenario.evidence_chips}
+                scenarios={entry.decision_scenario.scenarios}
+                disclaimer={entry.decision_scenario.disclaimer}
+              />
+            ) : (
+              <DecisionStudio
+                topic={entry.title}
+                evidenceChips={[]}
+                scenarios={[]}
+                disclaimer=""
+                isLoading
+              />
+            )}
           </div>
         )}
 

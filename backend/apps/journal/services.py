@@ -57,11 +57,12 @@ def create_journal(
 
 
 def _enqueue_summary_task(journal_id: int) -> None:
-    """AI 요약 Celery 태스크를 큐에 등록한다."""
+    """AI 요약 및 시나리오 생성 Celery 태스크를 큐에 등록한다."""
     # tasks.py → services.py 순환 임포트 방지를 위해 지연 임포트
-    from apps.journal.tasks import generate_journal_summary
+    from apps.journal.tasks import generate_decision_scenarios, generate_journal_summary
 
     generate_journal_summary.delay(journal_id)
+    generate_decision_scenarios.delay(journal_id)
 
 
 def _get_journal_or_raise(journal_id: int) -> JournalEntry:

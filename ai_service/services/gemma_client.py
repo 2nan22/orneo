@@ -21,6 +21,13 @@ FALLBACK_ACTIONS: list[str] = [
     "K-MOOC 강좌 20분 학습하기",
 ]
 
+FALLBACK_SCENARIOS: list[dict] = [
+    {"id": "A", "title": "현재 상태 유지", "risk": "낮음",  "description": "현재 상황을 유지하며 추가 데이터를 수집합니다."},
+    {"id": "B", "title": "단계적 실행",    "risk": "중간",  "description": "작은 단계부터 시작해 리스크를 분산합니다."},
+    {"id": "C", "title": "적극적 전환",    "risk": "높음",  "description": "목표 달성을 위해 빠르게 행동합니다."},
+]
+FALLBACK_EVIDENCE_CHIPS: list[str] = ["목표 진척도", "리스크 수준", "실행 가능성"]
+
 FALLBACK_ACTIONS_ITEMS: list[dict] = [
     {"text": "목표 진척도 5분 점검", "category": "general"},
     {"text": "오늘 지출 1건 기록", "category": "financial"},
@@ -35,6 +42,16 @@ class CoachResult:
 
     summary: str
     actions: list[str]
+    model_used: str
+
+
+@dataclass
+class ScenariosResult:
+    """시나리오 생성 결과."""
+
+    topic: str
+    evidence_chips: list[str]
+    scenarios: list[dict]
     model_used: str
 
 
@@ -266,6 +283,108 @@ class GemmaClient:
             actions = FALLBACK_ACTIONS_ITEMS
 
         return actions[:3], key_question
+
+    async def generate_scenarios(
+        self,
+        topic: str,
+        context: dict,
+    ) -> ScenariosResult:
+        """의사결정 주제에 대한 A/B/C 시나리오를 생성한다.
+
+        Args:
+            topic: 결정 주제 문자열.
+            context: category, user_goals, recent_data 딕셔너리.
+
+        Returns:
+            ScenariosResult 시나리오 목록·근거칩·모델명.
+        """
+        prompt = self._build_scenarios_prompt(topic, context)
+        try:
+            response = await self._client.post(
+                OLLAMA_GENERATE_URL,
+                json={
+                    "model": self._model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.5, "num_predict": 500},
+                },
+            )
+            response.raise_for_status()
+            raw_text = response.json().get("response", "")
+            scenarios, chips = self._parse_scenarios(raw_text)
+            return ScenariosResult(topic=topic, evidence_chips=chips, scenarios=scenarios, model_used=self._model)
+        except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+            logger.warning("Gemma scenarios 호출 실패, fallback 반환: %s", exc)
+            return ScenariosResult(
+                topic=topic,
+                evidence_chips=FALLBACK_EVIDENCE_CHIPS,
+                scenarios=FALLBACK_SCENARIOS,
+                model_used="fallback",
+            )
+
+    def _build_scenarios_prompt(self, topic: str, context: dict) -> str:
+        """시나리오 생성 프롬프트를 구성한다.
+
+        Args:
+            topic: 결정 주제.
+            context: 컨텍스트 딕셔너리.
+
+        Returns:
+            완성된 프롬프트 문자열.
+        """
+        goals_str = "\n".join(f"- {g}" for g in context.get("user_goals", [])) or "없음"
+        data_str = "\n".join(f"- {d}" for d in context.get("recent_data", [])) or "없음"
+        return f"""당신은 개인 재무·생활 코치입니다. 한국어로 답변하세요.
+
+[주제] {topic}
+[카테고리] {context.get("category", "general")}
+[관련 목표]
+{goals_str}
+[참고 데이터]
+{data_str}
+
+위 주제에 대해 A·B·C 세 가지 선택지를 작성하세요.
+각 선택지: 제목(10자 이내) / 리스크(높음·중간·낮음 중 하나) / 한 줄 설명(40자 이내)
+마지막 줄에 근거 데이터 키워드 2~3개를 쉼표로 나열하세요.
+
+형식 (반드시 이 형식 준수):
+A: (제목) | 리스크: (높음/중간/낮음) | 설명: (한 줄 설명)
+B: (제목) | 리스크: (높음/중간/낮음) | 설명: (한 줄 설명)
+C: (제목) | 리스크: (높음/중간/낮음) | 설명: (한 줄 설명)
+근거: (키워드1, 키워드2, 키워드3)"""
+
+    def _parse_scenarios(self, raw: str) -> tuple[list[dict], list[str]]:
+        """Gemma 응답에서 시나리오 목록과 근거 칩을 파싱한다.
+
+        Args:
+            raw: Gemma 원본 응답 텍스트.
+
+        Returns:
+            (scenarios, chips) 튜플.
+        """
+        lines = [line.strip() for line in raw.strip().splitlines() if line.strip()]
+        scenarios: list[dict] = []
+        chips: list[str] = FALLBACK_EVIDENCE_CHIPS[:]
+
+        for line in lines:
+            for sid in ["A", "B", "C"]:
+                if line.startswith(f"{sid}:") and "|" in line:
+                    parts = [p.strip() for p in line.split("|")]
+                    title = parts[0].replace(f"{sid}:", "").strip()
+                    risk = "중간"
+                    desc = ""
+                    for p in parts[1:]:
+                        if p.startswith("리스크:"):
+                            risk = p.replace("리스크:", "").strip()
+                        elif p.startswith("설명:"):
+                            desc = p.replace("설명:", "").strip()
+                    scenarios.append({"id": sid, "title": title, "risk": risk, "description": desc})
+            if line.startswith("근거:"):
+                chips = [c.strip() for c in line.replace("근거:", "").split(",") if c.strip()]
+
+        if len(scenarios) < 3:
+            scenarios = FALLBACK_SCENARIOS
+        return scenarios[:3], chips[:4]
 
     async def close(self) -> None:
         """HTTP 클라이언트 정리."""

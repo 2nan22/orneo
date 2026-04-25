@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from apps.journal.models import JournalCategory, JournalEntry
+from apps.journal.models import DecisionScenario, JournalCategory, JournalEntry
 
 
 class JournalCreateSerializer(serializers.Serializer):
@@ -24,8 +24,23 @@ class JournalReviewSerializer(serializers.Serializer):
     review_note = serializers.CharField()
 
 
+class DecisionScenarioInlineSerializer(serializers.ModelSerializer):
+    """시나리오 인라인 시리얼라이저."""
+
+    disclaimer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DecisionScenario
+        fields = ["topic", "evidence_chips", "scenarios", "model_used", "disclaimer"]
+
+    def get_disclaimer(self, obj: DecisionScenario) -> str:
+        return "이 시뮬레이션은 참고용이며 투자·부동산 권유가 아닙니다."
+
+
 class JournalResponseSerializer(serializers.ModelSerializer):
     """일지 응답 시리얼라이저."""
+
+    decision_scenario = DecisionScenarioInlineSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = JournalEntry
@@ -40,6 +55,7 @@ class JournalResponseSerializer(serializers.ModelSerializer):
             "related_goal_id",
             "reviewed_at",
             "review_note",
+            "decision_scenario",
             "created_at",
             "updated_at",
         ]
