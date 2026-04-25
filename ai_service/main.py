@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from routers import coach, health, public_data
+from routers import coach, decision, health, public_data
 from utils.http_client import close_http_client, init_http_client
 
 logger = logging.getLogger(__name__)
@@ -77,4 +77,5 @@ async def verify_service_secret(request: Request, call_next):
 
 app.include_router(health.router, tags=["health"])
 app.include_router(coach.router, prefix="/coach", tags=["coach"])
+app.include_router(decision.router, prefix="/decision", tags=["decision"])
 app.include_router(public_data.router, prefix="/public-data", tags=["public-data"])
