@@ -5,10 +5,10 @@ const SERVICE_KEY = process.env.DATA_GO_KR_SERVICE_KEY ?? "";
 const MOLIT_BASE  = "https://apis.data.go.kr/1613000";
 
 const SERVICE_MAP = {
-  apt:  "RTMSDataSvcAptTradeDev",
-  offi: "RTMSDataSvcOffiTradeDev",
-  rh:   "RTMSDataSvcRHTradeDev",
-  sh:   "RTMSDataSvcSHTradeDev",
+  apt:  "RTMSDataSvcAptTradeDev",   // 아파트만 Dev 버전 존재
+  offi: "RTMSDataSvcOffiTrade",
+  rh:   "RTMSDataSvcRHTrade",
+  sh:   "RTMSDataSvcSHTrade",
 } as const;
 type PropertyType = keyof typeof SERVICE_MAP;
 
