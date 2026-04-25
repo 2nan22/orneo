@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import logging
-
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -18,8 +16,6 @@ from apps.goals.serializers import (
     GoalUpdateSerializer,
 )
 from apps.goals.services import create_goal, update_goal
-
-logger = logging.getLogger(__name__)
 
 
 class GoalListCreateView(APIView):

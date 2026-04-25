@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from django.db import transaction
 
@@ -50,35 +51,11 @@ def create_goal(
 
 
 @transaction.atomic
-def update_goal_progress(
-    *,
-    goal_id: int,
-    user: CustomUser,
-    progress: float,
-) -> Goal:
-    """목표 진척도를 업데이트한다.
-
-    Args:
-        goal_id: 업데이트할 목표 ID.
-        user: 요청 사용자.
-        progress: 새 진척도 (0.0 ~ 1.0).
-
-    Returns:
-        업데이트된 Goal 인스턴스.
-    """
-    goal = get_goal_or_raise(goal_id=goal_id, user=user)
-    goal.progress = progress
-    goal.save(update_fields=["progress", "updated_at"])
-    logger.info("목표 진척도 업데이트: id=%d progress=%.2f", goal.pk, progress)
-    return goal
-
-
-@transaction.atomic
 def update_goal(
     *,
     goal_id: int,
     user: CustomUser,
-    data: dict,
+    data: dict[str, Any],
 ) -> Goal:
     """목표 필드를 업데이트한다.
 

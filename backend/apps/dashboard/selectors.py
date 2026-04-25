@@ -15,9 +15,9 @@ def get_active_goals(*, user_id: int) -> list[dict]:
     Returns:
         category와 progress 키를 가진 dict 리스트.
     """
-    from apps.goals.models import Goal
+    from apps.goals.selectors import get_active_goals as _get_active_goals
 
-    return list(Goal.objects.filter(user_id=user_id, is_active=True).values("category", "progress"))
+    return list(_get_active_goals(user_id=user_id).values("category", "progress"))
 
 
 def get_latest_snapshot(*, user_id: int) -> CapitalScoreSnapshot | None:
