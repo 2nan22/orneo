@@ -23,11 +23,19 @@ export type TodayAction = {
   completed: boolean;
 };
 
+export type ScoreDelta = {
+  score: number;
+  asset_stability: number;
+  goal_progress: number;
+  routine_score: number;
+};
+
 export type DashboardData = {
   score: number;
   asset_stability: number;
   goal_progress: number;
   routine_score: number;
+  delta: ScoreDelta | null;
   key_question: string;
   today_actions: TodayAction[];
 };
