@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { WeeklyReport } from "@/lib/types";
 import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
 
 function getPreviousMonday(): string {
   const today = new Date();
@@ -62,7 +63,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer size="lg">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--color-text)]">주간 복기 리포트</h1>
         <Button variant="outline" onClick={handleGenerate} loading={generating}>
@@ -88,6 +89,6 @@ export default function ReportsPage() {
           </Button>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
