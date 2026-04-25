@@ -11,11 +11,13 @@ import ScoreBreakdown from "@/components/dashboard/ScoreBreakdown";
 import KeyQuestion from "@/components/dashboard/KeyQuestion";
 import TodayActions from "@/components/dashboard/TodayActions";
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
+import ApartmentCard from "@/components/dashboard/ApartmentCard";
 import { api } from "@/lib/api";
-import type { DashboardData } from "@/lib/types";
+import type { DashboardData, UserProfile } from "@/lib/types";
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
@@ -35,6 +37,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboard();
+    api.get<UserProfile>("/auth/profile")
+      .then(setProfile)
+      .catch(() => {});
   }, [fetchDashboard]);
 
   async function handleToggleAction(id: number, completed: boolean) {
@@ -140,6 +145,17 @@ export default function DashboardPage() {
             </Link>
           </div>
         </Card>
+
+        {/* 5. 실거래가 카드 — preferred_region_code 있는 사용자만 표시 */}
+        {profile?.preferred_region_code && (
+          <div className="sm:col-span-2">
+            <ApartmentCard
+              lawdCd={profile.preferred_region_code}
+              dealYmd={new Date().toISOString().slice(0, 7).replace("-", "")}
+              regionName={profile.preferred_region || "희망 지역"}
+            />
+          </div>
+        )}
 
       </div>
     </PageContainer>
