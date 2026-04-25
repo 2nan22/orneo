@@ -20,7 +20,7 @@ from apps.journal.services import create_journal, mark_reviewed
 @pytest.mark.django_db
 def test_create_journal_success(user: CustomUser) -> None:
     """일지 생성이 정상적으로 동작한다."""
-    with patch("apps.journal.services._enqueue_summary_task") as mock_enqueue:
+    with patch("apps.journal.services._enqueue_summary_task"):
         entry = create_journal(
             user=user,
             category=JournalCategory.INVESTMENT,

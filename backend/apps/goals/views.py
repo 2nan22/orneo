@@ -12,7 +12,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.goals.selectors import get_user_goals
-from apps.goals.serializers import GoalCreateSerializer, GoalResponseSerializer, GoalUpdateSerializer
+from apps.goals.serializers import (
+    GoalCreateSerializer,
+    GoalResponseSerializer,
+    GoalUpdateSerializer,
+)
 from apps.goals.services import create_goal, update_goal
 
 logger = logging.getLogger(__name__)

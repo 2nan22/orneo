@@ -69,11 +69,11 @@ def generate_journal_summary(self, journal_id: int) -> None:
             "[TASK:%s] AI 서비스 HTTP 오류 (시도 %d/%d): status=%d",
             self.request.id, self.request.retries + 1, self.max_retries, exc.response.status_code,
         )
-        raise self.retry(exc=exc, countdown=5 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=5 * (2 ** self.request.retries)) from exc
 
     except httpx.RequestError as exc:
         logger.warning(
             "[TASK:%s] AI 서비스 연결 실패 (시도 %d/%d): %s",
             self.request.id, self.request.retries + 1, self.max_retries, exc,
         )
-        raise self.retry(exc=exc, countdown=5 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=5 * (2 ** self.request.retries)) from exc

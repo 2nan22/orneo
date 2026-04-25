@@ -10,7 +10,7 @@ export default function CapitalScoreGauge({ score }: Props) {
   const cx = 96;
   const cy = 96;
   const circumference = 2 * Math.PI * r;
-  const clamped = Math.min(100, Math.max(0, score));
+  const clamped = Number.isFinite(score) ? Math.min(100, Math.max(0, score)) : 0;
   const dashoffset = circumference * (1 - clamped / 100);
 
   const color =
