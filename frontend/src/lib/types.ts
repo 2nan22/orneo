@@ -42,3 +42,18 @@ export type Goal = {
   progress: number;
   created_at: string;
 };
+
+export type WeeklyReport = {
+  id: number;
+  week_start: string;
+  week_end: string;
+  capital_score: number;
+  goal_achievement_rate: number;
+  journal_count: number;
+  action_completion_rate: number;
+  highlights: string[];
+  improvements: string[];
+  next_week_action: string;
+  ai_summary: string | null;
+  created_at: string;
+};
