@@ -82,6 +82,26 @@ def _get_journal_or_raise(journal_id: int) -> JournalEntry:
     return entry
 
 
+def get_journal_for_user(*, journal_id: int, user: CustomUser) -> JournalEntry:
+    """일지를 조회하고 요청 사용자의 소유 여부를 검증한다.
+
+    Args:
+        journal_id: 일지 PK.
+        user: 요청 사용자.
+
+    Returns:
+        조회된 JournalEntry 인스턴스.
+
+    Raises:
+        JournalNotFoundError: 일지가 존재하지 않는 경우.
+        JournalPermissionError: 다른 사용자의 일지에 접근하는 경우.
+    """
+    entry = _get_journal_or_raise(journal_id=journal_id)
+    if entry.user_id != user.pk:
+        raise JournalPermissionError("접근 권한이 없습니다.")
+    return entry
+
+
 @transaction.atomic
 def mark_reviewed(
     *,

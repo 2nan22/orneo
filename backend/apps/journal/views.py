@@ -3,24 +3,19 @@
 
 from __future__ import annotations
 
-import logging
-
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.journal.exceptions import JournalNotFoundError, JournalPermissionError
-from apps.journal.selectors import get_journal_by_id, get_user_journals
+from apps.journal.selectors import get_user_journals
 from apps.journal.serializers import (
     JournalCreateSerializer,
     JournalResponseSerializer,
     JournalReviewSerializer,
 )
-from apps.journal.services import create_journal, mark_reviewed
-
-logger = logging.getLogger(__name__)
+from apps.journal.services import create_journal, get_journal_for_user, mark_reviewed
 
 
 class JournalListCreateView(APIView):
@@ -53,11 +48,7 @@ class JournalDetailView(APIView):
 
     def get(self, request: Request, pk: int) -> Response:
         """일지 상세를 반환한다."""
-        entry = get_journal_by_id(journal_id=pk)
-        if entry is None:
-            raise JournalNotFoundError(f"일지를 찾을 수 없습니다: id={pk}")
-        if entry.user_id != request.user.pk:
-            raise JournalPermissionError("접근 권한이 없습니다.")
+        entry = get_journal_for_user(journal_id=pk, user=request.user)
         return Response({"status": "success", "data": JournalResponseSerializer(entry).data})
 
 
