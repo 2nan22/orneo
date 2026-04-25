@@ -10,3 +10,7 @@ DEBUG = True
 INSTALLED_APPS += ["django_extensions"]  # noqa: F405
 
 LOGGING["root"]["level"] = "DEBUG"  # noqa: F405
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
