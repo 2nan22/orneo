@@ -67,4 +67,5 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: "Pretendard Variable", "Pretendard", Arial, Helvetica, sans-serif;
+  /* var(--font-pretendard) 추가 시: next/font/local 전환 후 맨 앞에 추가 */
 }
