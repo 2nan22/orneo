@@ -155,16 +155,10 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* 5. 실거래가 카드 — preferred_region_code 있는 사용자만 표시 */}
-        {profile?.preferred_region_code && (
-          <div className="sm:col-span-2">
-            <ApartmentCard
-              lawdCd={profile.preferred_region_code}
-              dealYmd={new Date().toISOString().slice(0, 7).replace("-", "")}
-              regionName={profile.preferred_region || "희망 지역"}
-            />
-          </div>
-        )}
+        {/* 5. 실거래가 카드 — 항상 표시 (설정 지역으로 초기화, 카드 내에서 변경 가능) */}
+        <div className="sm:col-span-2">
+          <ApartmentCard initialCode={profile?.preferred_region_code ?? ""} />
+        </div>
 
       </div>
     </PageContainer>
