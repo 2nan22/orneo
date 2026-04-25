@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
 import CapitalScoreGauge from "@/components/dashboard/CapitalScoreGauge";
 import ScoreBreakdown from "@/components/dashboard/ScoreBreakdown";
+import GoalGrid from "@/components/dashboard/GoalGrid";
 import KeyQuestion from "@/components/dashboard/KeyQuestion";
 import TodayActions from "@/components/dashboard/TodayActions";
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
@@ -130,6 +131,14 @@ export default function DashboardPage() {
                 routine_score={d.routine_score}
               />
             </div>
+          </div>
+          <div className="mt-4">
+            <GoalGrid
+              assetStability={d.asset_stability}
+              goalProgress={d.goal_progress}
+              routineScore={d.routine_score}
+              delta={d.delta}
+            />
           </div>
         </Card>
 

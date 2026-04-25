@@ -29,6 +29,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """사용자 프로필 수정 직렬화기.
+
+    수정 가능 필드만 허용한다.
+    """
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            "risk_tolerance",
+            "preferred_region",
+            "preferred_region_code",
+            "learning_interests",
+        ]
+
+    def validate_learning_interests(self, value: list) -> list:
+        """학습 관심사 최대 10개 제한."""
+        if len(value) > 10:
+            raise serializers.ValidationError("관심사는 최대 10개까지 입력 가능합니다.")
+        return value
+
+
 class OnboardingSerializer(serializers.Serializer):
     """온보딩 입력 직렬화기."""
 
