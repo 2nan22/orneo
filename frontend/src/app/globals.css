@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  /* ─── 기존 (변경 금지) ─── */
   --color-primary: #2563eb;
   --color-primary-end: #0c2aa8;
   --color-point: #00c2a8;
@@ -9,20 +10,62 @@
   --color-border: #e2e8f0;
   --color-bg: #f1f5f9;
   --color-card: #ffffff;
+
+  /* ─── 신규 색상 토큰 ─── */
+  --color-primary-light: #eff6ff;
+  --color-point-light:   #ecfdf9;
+  --color-danger:        #ef4444;
+  --color-danger-light:  #fef2f2;
+  --color-success:       #22c55e;
+  --color-warning:       #f59e0b;
+
+  /* ─── 그림자 토큰 ─── */
+  --shadow-card:  0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-modal: 0 10px 40px -4px rgb(0 0 0 / 0.14);
+  --shadow-fab:   0 4px 16px 0 rgb(37 99 235 / 0.30);
+
+  /* ─── Radius 토큰 ─── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* ─── Dark mode 예약 (미구현) ─── */
+  /* @media (prefers-color-scheme: dark) { :root { ... } } */
 }
 
 @theme inline {
-  --color-primary: var(--color-primary);
-  --color-point: var(--color-point);
-  --color-text: var(--color-text);
-  --color-text-sub: var(--color-text-sub);
-  --color-border: var(--color-border);
-  --color-bg: var(--color-bg);
-  --color-card: var(--color-card);
+  /* ─── 기존 (변경 금지) ─── */
+  --color-primary:     var(--color-primary);
+  --color-point:       var(--color-point);
+  --color-text:        var(--color-text);
+  --color-text-sub:    var(--color-text-sub);
+  --color-border:      var(--color-border);
+  --color-bg:          var(--color-bg);
+  --color-card:        var(--color-card);
+
+  /* ─── 신규 추가 ─── */
+  --color-primary-end:   var(--color-primary-end);
+  --color-primary-light: var(--color-primary-light);
+  --color-point-light:   var(--color-point-light);
+  --color-danger:        var(--color-danger);
+  --color-danger-light:  var(--color-danger-light);
+  --color-success:       var(--color-success);
+  --color-warning:       var(--color-warning);
+  --shadow-card:         var(--shadow-card);
+  --shadow-modal:        var(--shadow-modal);
+  --shadow-fab:          var(--shadow-fab);
+  --radius-sm:           var(--radius-sm);
+  --radius-md:           var(--radius-md);
+  --radius-lg:           var(--radius-lg);
+  --radius-xl:           var(--radius-xl);
+  --radius-full:         var(--radius-full);
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: "Pretendard Variable", "Pretendard", Arial, Helvetica, sans-serif;
+  /* var(--font-pretendard) 추가 시: next/font/local 전환 후 맨 앞에 추가 */
 }
