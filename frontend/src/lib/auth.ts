@@ -1,5 +1,6 @@
 export const ACCESS_TOKEN_COOKIE = "orneo_access";
 export const REFRESH_TOKEN_COOKIE = "orneo_refresh";
+export const ONBOARDED_COOKIE = "orneo_onboarded";
 
 /** 쿠키 maxAge (초) */
 export const ACCESS_TOKEN_MAX_AGE = 60 * 60;        // 1h
