@@ -62,8 +62,8 @@ def get_goal_or_raise(*, goal_id: int, user: CustomUser) -> Goal:
     """
     try:
         goal = Goal.objects.get(pk=goal_id)
-    except Goal.DoesNotExist:
-        raise GoalNotFoundError(f"목표를 찾을 수 없습니다: id={goal_id}")
+    except Goal.DoesNotExist as exc:
+        raise GoalNotFoundError(f"목표를 찾을 수 없습니다: id={goal_id}") from exc
     if goal.user_id != user.pk:
         raise GoalPermissionError("접근 권한이 없습니다.")
     return goal

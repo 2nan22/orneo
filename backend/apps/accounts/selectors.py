@@ -21,5 +21,5 @@ def get_user_by_id(*, user_id: int) -> CustomUser:
     """
     try:
         return CustomUser.objects.get(pk=user_id)
-    except CustomUser.DoesNotExist:
-        raise AccountNotFoundError(f"사용자를 찾을 수 없습니다: id={user_id}")
+    except CustomUser.DoesNotExist as exc:
+        raise AccountNotFoundError(f"사용자를 찾을 수 없습니다: id={user_id}") from exc
