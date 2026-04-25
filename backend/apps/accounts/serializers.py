@@ -30,11 +30,11 @@ class OnboardingSerializer(serializers.Serializer):
     """온보딩 입력 직렬화기."""
 
     monthly_savings_goal = serializers.IntegerField(min_value=0)
-    total_asset_range = serializers.ChoiceField(
-        choices=["~5000", "5000~1억", "1억~"]
+    asset_range = serializers.ChoiceField(
+        choices=["under_50m", "50m_to_200m", "over_200m"]
     )
-    housing_status = serializers.ChoiceField(choices=["전세", "월세", "자가"])
-    preferred_region = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    housing_status = serializers.ChoiceField(choices=["jeonse", "monthly_rent", "owned"])
+    desired_region = serializers.CharField(max_length=50, required=False, allow_blank=True)
     risk_tolerance = serializers.ChoiceField(choices=RiskTolerance.values)
     learning_interests = serializers.ListField(
         child=serializers.CharField(),

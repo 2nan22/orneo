@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import logging
-
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -13,8 +11,6 @@ from rest_framework.views import APIView
 
 from apps.accounts.serializers import OnboardingSerializer, UserProfileSerializer
 from apps.accounts.services import complete_onboarding
-
-logger = logging.getLogger(__name__)
 
 
 class ProfileView(APIView):
