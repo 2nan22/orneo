@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import PageContainer from "@/components/ui/PageContainer";
 import CategoryTabs, { type CategoryFilter } from "@/components/journal/CategoryTabs";
 import JournalCard from "@/components/journal/JournalCard";
 import ReviewModal from "@/components/journal/ReviewModal";
@@ -84,7 +85,7 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <PageContainer size="md">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--color-text)]">의사결정 일지</h1>
         <Link href="/journal/new">
@@ -126,6 +127,6 @@ export default function JournalPage() {
           onSave={(memo) => handleReviewSave(reviewTarget.id, memo)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

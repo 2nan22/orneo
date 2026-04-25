@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
 import CapitalScoreGauge from "@/components/dashboard/CapitalScoreGauge";
 import ScoreBreakdown from "@/components/dashboard/ScoreBreakdown";
 import KeyQuestion from "@/components/dashboard/KeyQuestion";
@@ -50,7 +51,7 @@ export default function DashboardPage() {
   const d = data ?? MOCK;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <PageContainer size="lg">
       <h1 className="mb-6 text-2xl font-bold text-[var(--color-text)]">라이프 캐피털 대시보드</h1>
 
       {/* 점수 섹션 */}
@@ -77,6 +78,6 @@ export default function DashboardPage() {
       <Card className="mt-4">
         <TodayActions actions={d.today_actions} onToggle={handleToggleAction} />
       </Card>
-    </div>
+    </PageContainer>
   );
 }

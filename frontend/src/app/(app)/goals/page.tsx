@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { Goal, GoalCategory } from "@/lib/types";
 import GoalCard from "@/components/goals/GoalCard";
 import GoalCreateModal from "@/components/goals/GoalCreateModal";
+import PageContainer from "@/components/ui/PageContainer";
 
 type CategoryFilter = "all" | GoalCategory;
 
@@ -87,7 +88,7 @@ export default function GoalsPage() {
     filter === "all" ? goals : goals.filter((g) => g.category === filter);
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <PageContainer size="md">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--color-text)]">목표 관리</h1>
       </div>
@@ -154,6 +155,6 @@ export default function GoalsPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
