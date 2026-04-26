@@ -8,6 +8,7 @@ interface Course {
   course_name: string;
   org_name: string;
   short_description: string;
+  course_url?: string;
 }
 
 export default function CourseSuggestionCard({ keyword }: { keyword: string }) {
@@ -46,7 +47,7 @@ export default function CourseSuggestionCard({ keyword }: { keyword: string }) {
             courses.map((c) => (
               <a
                 key={c.course_id}
-                href={`https://www.kmooc.kr/courses/${c.course_id}/about`}
+                href={c.course_url ?? `https://www.kmooc.kr/view/course/detail/${c.course_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block rounded-lg border border-[var(--color-border)]

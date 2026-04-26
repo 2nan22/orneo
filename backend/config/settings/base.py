@@ -50,6 +50,7 @@ LOCAL_APPS: list[str] = [
     "apps.journal",
     "apps.dashboard",
     "apps.reports",
+    "apps.public_data",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -198,7 +199,13 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.dashboard.tasks.generate_daily_actions_for_all_users",
         "schedule": crontab(hour=6, minute=0),
     },
+    "sync-kmooc-courses-daily": {
+        "task": "apps.public_data.tasks.sync_kmooc_courses",
+        "schedule": crontab(hour=3, minute=0),  # 새벽 3시 1회
+    },
 }
+
+DATA_GO_KR_SERVICE_KEY = env("DATA_GO_KR_SERVICE_KEY", default="")
 
 # AI Service
 AI_SERVICE_URL = env("AI_SERVICE_URL", default="http://ai_service:8001")
