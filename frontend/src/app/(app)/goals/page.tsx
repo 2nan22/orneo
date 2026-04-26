@@ -29,6 +29,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: 10000000,
     target_date: "2025-12-31",
     progress: 0.62,
+    is_active: true,
     created_at: "2025-01-01T00:00:00Z",
   },
   {
@@ -39,6 +40,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: null,
     target_date: "2025-06-30",
     progress: 0.45,
+    is_active: true,
     created_at: "2025-01-15T00:00:00Z",
   },
   {
@@ -49,6 +51,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: null,
     target_date: "2025-03-01",
     progress: 0.8,
+    is_active: true,
     created_at: "2025-02-01T00:00:00Z",
   },
   {
@@ -59,6 +62,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: null,
     target_date: null,
     progress: 0.33,
+    is_active: true,
     created_at: "2025-02-10T00:00:00Z",
   },
 ];
@@ -68,6 +72,14 @@ export default function GoalsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<CategoryFilter>("all");
   const [showModal, setShowModal] = useState(false);
+
+  function handleGoalUpdated(updated: Goal) {
+    if (!updated.is_active) {
+      setGoals((prev) => prev.filter((g) => g.id !== updated.id));
+    } else {
+      setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+    }
+  }
 
   const fetchGoals = useCallback(async () => {
     setLoading(true);
@@ -131,7 +143,7 @@ export default function GoalsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {displayed.map((goal) => (
-            <GoalCard key={goal.id} goal={goal} />
+            <GoalCard key={goal.id} goal={goal} onProgressUpdate={handleGoalUpdated} />
           ))}
         </div>
       )}
