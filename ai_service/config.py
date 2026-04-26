@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
 
     ollama_base_url: str = "http://host.docker.internal:11434"
-    gemma_model: str = "gemma4:e2b"
+    gemma_model: str = "qwen2.5:7b"
 
     # 공공데이터포털 공통 인증키 (MOLIT + K-MOOC)
     data_go_kr_service_key: str = ""
