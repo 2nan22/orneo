@@ -1,6 +1,7 @@
 // frontend/src/app/api/public-data/kmooc/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAiService } from "@/lib/ai-service";
+
+const DJANGO_URL = process.env.DJANGO_INTERNAL_URL ?? "http://backend:8000";
 
 export async function GET(req: NextRequest) {
   const keyword = req.nextUrl.searchParams.get("keyword") ?? "";
@@ -8,10 +9,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: "success", data: [] });
   }
   try {
-    const data = await fetchAiService(
-      `/public-data/kmooc/courses?keyword=${encodeURIComponent(keyword)}`,
+    const res = await fetch(
+      `${DJANGO_URL}/api/v1/public-data/kmooc/courses/?keyword=${encodeURIComponent(keyword)}`,
+      { cache: "no-store" },
     );
-    return NextResponse.json(data);
+    if (!res.ok) {
+      return NextResponse.json({ status: "success", data: [] });
+    }
+    const json = await res.json();
+    return NextResponse.json(json);
   } catch {
     return NextResponse.json({ status: "success", data: [] });
   }

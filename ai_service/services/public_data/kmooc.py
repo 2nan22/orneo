@@ -16,6 +16,7 @@ class KmoocCourseClient:
     """K-MOOC 강좌정보 클라이언트.
 
     공공데이터포털 K-MOOC v2.0 OpenAPI를 통해 강좌 정보를 조회한다.
+    엔드포인트: https://apis.data.go.kr/B552881/kmooc_v2_0/courseList_v2_0
 
     Args:
         service_key: 공공데이터포털 인증키 (DATA_GO_KR_SERVICE_KEY).
@@ -53,23 +54,30 @@ class KmoocCourseClient:
         Returns:
             API 원본 응답 딕셔너리.
         """
-        params = {
+        params: dict = {
             "serviceKey": self._service_key,
-            "keyword": keyword,
-            "pageNo": page,
-            "numOfRows": page_size,
-            "resultType": "json",
+            "page": page,
+            "size": page_size,
         }
+        if keyword:
+            params["keyword"] = keyword
+
         logger.debug("[K-MOOC API] 강좌 검색 시작: keyword=%s", keyword)
-        response = await self._http.get("getLectures", params=params)
+        response = await self._http.get("courseList_v2_0", params=params)
         response.raise_for_status()
         return response.json()
 
     async def search_courses(self, *, keyword: str) -> list[dict]:
         """키워드로 강좌를 검색하고 정형화된 목록을 반환한다.
 
-        data.go.kr K-MOOC v2.0 응답 구조를 파싱한다.
-        response.body.items.item 배열 또는 items 배열을 처리한다.
+        K-MOOC v2.0 응답 구조:
+        {
+            "header": {"page": N, "size": N, "totalCount": N},
+            "resultCode": "00",
+            "resultMsg": "성공",
+            "totalCount": N,
+            "items": [{"id": ..., "name": ..., "org_name": ..., "course_image": ..., "url": ...}, ...]
+        }
 
         Args:
             keyword: 검색 키워드.
@@ -79,35 +87,27 @@ class KmoocCourseClient:
         """
         raw = await self.fetch_raw(keyword=keyword)
 
-        # data.go.kr 표준 응답 구조 시도
-        body = raw.get("response", raw).get("body", raw)
-        items_wrapper = body.get("items", {})
+        if raw.get("resultCode") != "00":
+            logger.warning(
+                "[K-MOOC API] API 오류 응답: resultCode=%s resultMsg=%s",
+                raw.get("resultCode"),
+                raw.get("resultMsg"),
+            )
+            return []
 
-        if isinstance(items_wrapper, dict):
-            items = items_wrapper.get("item", [])
-        elif isinstance(items_wrapper, list):
-            items = items_wrapper
-        else:
-            # 구형 kmooc.kr 응답 구조 폴백
-            items = raw.get("results", raw.get("data", raw.get("courses", [])))
-
-        if isinstance(items, dict):
-            items = [items]
+        items = raw.get("items", [])
+        if not isinstance(items, list):
+            items = []
 
         courses = []
         for item in items:
             courses.append({
-                "course_id": item.get("lectureId", item.get("id", item.get("course_id", ""))),
-                "course_name": item.get(
-                    "lectureName", item.get("name", item.get("course_name", ""))
-                ),
-                "org_name": item.get(
-                    "orgName", item.get("org", item.get("organization", ""))
-                ),
-                "short_description": item.get("shortDescription", item.get("short_description", "")),
-                "course_image_url": item.get(
-                    "courseImageUrl", item.get("course_image_url", "")
-                ),
+                "course_id": str(item.get("id", "")),
+                "course_name": item.get("name", ""),
+                "org_name": item.get("org_name", ""),
+                "short_description": item.get("professor", ""),
+                "course_image_url": item.get("course_image", ""),
+                "course_url": item.get("url", ""),
             })
 
         logger.info(
