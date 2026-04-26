@@ -7,6 +7,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from config import settings
 from schemas.decision import DecisionScenariosRequest, DecisionScenariosResponse, Scenario
 from services.gemma_client import GemmaClient, get_gemma_client
 
@@ -39,6 +40,7 @@ async def generate_decision_scenarios(
         result = await client.generate_scenarios(
             topic=request.topic,
             context=request.context.model_dump(),
+            tavily_api_key=settings.tavily_api_key,
         )
         return DecisionScenariosResponse(
             topic=result.topic,
