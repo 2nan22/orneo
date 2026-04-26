@@ -6,21 +6,24 @@ import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
-import CapitalScoreGauge from "@/components/dashboard/CapitalScoreGauge";
-import ScoreBreakdown from "@/components/dashboard/ScoreBreakdown";
+import MeasurementToggle from "@/components/ui/MeasurementToggle";
+import HeroScoreCard from "@/components/dashboard/HeroScoreCard";
 import GoalGrid from "@/components/dashboard/GoalGrid";
 import KeyQuestion from "@/components/dashboard/KeyQuestion";
 import TodayActions from "@/components/dashboard/TodayActions";
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 import ApartmentCard from "@/components/dashboard/ApartmentCard";
+import OrneoAiPanel from "@/components/dashboard/OrneoAiPanel";
 import { api } from "@/lib/api";
+import type { MeasureMode } from "@/components/ui/MeasurementToggle";
 import type { DashboardData, UserProfile } from "@/lib/types";
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const [data, setData]           = useState<DashboardData | null>(null);
+  const [profile, setProfile]     = useState<UserProfile | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [isError, setIsError]     = useState(false);
+  const [measureMode, setMeasureMode] = useState<MeasureMode>("level");
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -79,19 +82,27 @@ export default function DashboardPage() {
 
   return (
     <PageContainer size="lg">
-      <h1 className="mb-6 text-[22px] font-bold text-[var(--color-text)]">
-        오늘의 대시보드
-      </h1>
+      {/* 측정 모드 토글 — 상단 고정 */}
+      <div className="mb-5">
+        <MeasurementToggle mode={measureMode} setMode={setMeasureMode} />
+      </div>
 
       {/*
-        모바일: flex-col — DOM 순서대로 표시 (행동 → 질문 → 점수 → 빠른 진입)
-        데스크톱(sm+): 2컬럼 그리드, sm:col-start-* 로 각 카드를 명시적 배치
-          col 1: 점수, 빠른 진입
-          col 2: 오늘 할 행동, 핵심 질문
+        모바일: flex-col — HeroScoreCard → TodayActions → GoalGrid → KeyQuestion → OrneoAiPanel → 빠른 이동 → 실거래가
+        데스크톱(sm+): 2컬럼 그리드
+          col 1: HeroScoreCard (row1), GoalGrid (row2), 빠른 이동 (row3)
+          col 2: TodayActions (row1), KeyQuestion (row2)
       */}
       <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_360px] sm:gap-6">
 
-        {/* 1. 오늘 할 행동 — 모바일 최상단 / 데스크톱 col 2 row 1 */}
+        {/* 1. 히어로 점수 카드 — 모바일 1번째 / 데스크톱 col 1 row 1 */}
+        <HeroScoreCard
+          score={d.score}
+          measureMode={measureMode}
+          className="sm:col-start-1 sm:row-start-1"
+        />
+
+        {/* 2. 오늘 할 행동 — 모바일 2번째 / 데스크톱 col 2 row 1 */}
         {d.today_actions.length === 0 ? (
           <Card
             variant="outlined"
@@ -110,40 +121,31 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {/* 2. 오늘의 핵심 질문 — 모바일 2번째 / 데스크톱 col 2 row 2 */}
+        {/* 3. MetricCard (GoalGrid) — 모바일 3번째 / 데스크톱 col 1 row 2 */}
+        <Card className="sm:col-start-1 sm:row-start-2">
+          <GoalGrid
+            assetStability={d.asset_stability}
+            goalProgress={d.goal_progress}
+            routineScore={d.routine_score}
+            delta={d.delta}
+            measureMode={measureMode}
+          />
+        </Card>
+
+        {/* 4. 오늘의 핵심 질문 — 모바일 4번째 / 데스크톱 col 2 row 2 */}
         {d.key_question && (
           <div className="sm:col-start-2 sm:row-start-2">
             <KeyQuestion question={d.key_question} />
           </div>
         )}
 
-        {/* 3. 라이프 캐피털 점수 — 모바일 3번째 / 데스크톱 col 1 row 1 */}
-        <Card className="sm:col-start-1 sm:row-start-1">
-          <h2 className="mb-4 text-sm font-semibold text-[var(--color-text-sub)]">
-            이번 주 라이프 캐피털 점수
-          </h2>
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-            <CapitalScoreGauge score={d.score} />
-            <div className="w-full flex-1">
-              <ScoreBreakdown
-                asset_stability={d.asset_stability}
-                goal_progress={d.goal_progress}
-                routine_score={d.routine_score}
-              />
-            </div>
-          </div>
-          <div className="mt-4">
-            <GoalGrid
-              assetStability={d.asset_stability}
-              goalProgress={d.goal_progress}
-              routineScore={d.routine_score}
-              delta={d.delta}
-            />
-          </div>
-        </Card>
+        {/* 5. ORNEO AI 패널 — 전폭 */}
+        <div className="sm:col-span-2">
+          <OrneoAiPanel />
+        </div>
 
-        {/* 4. 빠른 진입 — 모바일 4번째 / 데스크톱 col 1 row 2 */}
-        <Card variant="outlined" className="sm:col-start-1 sm:row-start-2">
+        {/* 6. 빠른 이동 — 모바일 6번째 / 데스크톱 col 1 row 3 */}
+        <Card variant="outlined" className="sm:col-start-1 sm:row-start-3">
           <p className="text-sm font-semibold text-[var(--color-text-sub)]">빠른 이동</p>
           <div className="mt-3 flex gap-2">
             <Link href="/journal" className="flex-1">
@@ -155,7 +157,7 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* 5. 실거래가 카드 — 항상 표시 (설정 지역으로 초기화, 카드 내에서 변경 가능) */}
+        {/* 7. 실거래가 카드 — 항상 표시 */}
         <div className="sm:col-span-2">
           <ApartmentCard initialCode={profile?.preferred_region_code ?? ""} />
         </div>
