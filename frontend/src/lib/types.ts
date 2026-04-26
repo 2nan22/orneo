@@ -13,6 +13,8 @@ export type UserProfile = {
   preferred_region: string;
   preferred_region_code: string;
   learning_interests: string[];
+  preferred_ai_model: string;
+  notify_daily_action: boolean;
   created_at: string;
 };
 

@@ -24,6 +24,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "preferred_region",
             "preferred_region_code",
             "learning_interests",
+            "preferred_ai_model",
+            "notify_daily_action",
             "created_at",
         ]
         read_only_fields = fields
@@ -42,6 +44,8 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             "preferred_region",
             "preferred_region_code",
             "learning_interests",
+            "preferred_ai_model",
+            "notify_daily_action",
         ]
 
     def validate_learning_interests(self, value: list) -> list:

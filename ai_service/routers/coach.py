@@ -76,6 +76,7 @@ async def generate_daily_actions(
             goals=[g.model_dump() for g in request.goals],
             recent_summaries=request.recent_journal_summaries,
             risk_tolerance=request.risk_tolerance,
+            preferred_model=request.preferred_model,
         )
         return DailyActionsResponse(
             actions=[ActionItem(**a) for a in result.actions],

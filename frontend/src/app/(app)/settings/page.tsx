@@ -20,6 +20,8 @@ type Profile = {
   preferred_region: string;
   preferred_region_code: string;
   learning_interests: string[];
+  preferred_ai_model: string;
+  notify_daily_action: boolean;
 };
 
 const RISK_OPTIONS = [
@@ -31,10 +33,10 @@ const RISK_OPTIONS = [
 const INTEREST_TAGS = ["IT", "금융", "부동산", "자기계발", "언어", "창업", "건강", "예술"];
 
 const MODEL_OPTIONS = [
-  { label: "자동 선택",    desc: "ORNEO AI가 작업에 맞춰 모델을 선택합니다." },
-  { label: "Gemma 4 E2B", desc: "온디바이스 요약·마스킹에 적합합니다." },
-  { label: "Qwen 2.5",    desc: "로컬 추론·문서 분류에 적합합니다." },
-  { label: "서버 고성능",  desc: "심층 리서치와 장문 보고서에 적합합니다." },
+  { value: "auto",   label: "자동 선택",    desc: "ORNEO AI가 작업에 맞춰 모델을 선택합니다." },
+  { value: "gemma",  label: "Gemma 4 E2B", desc: "온디바이스 요약·마스킹에 적합합니다." },
+  { value: "qwen",   label: "Qwen 2.5",    desc: "로컬 추론·문서 분류에 적합합니다." },
+  { value: "server", label: "서버 고성능",  desc: "심층 리서치와 장문 보고서에 적합합니다." },
 ];
 
 const DATA_SOURCES = [
@@ -51,7 +53,8 @@ export default function SettingsPage() {
   const [loading, setLoading]               = useState(true);
   const [saving, setSaving]                 = useState(false);
   const [toast, setToast]                   = useState<string | null>(null);
-  const [modelMode, setModelMode]           = useState("자동 선택");
+  const [modelMode, setModelMode]           = useState("auto");
+  const [notifyDailyAction, setNotifyDailyAction] = useState(false);
 
   const [riskTolerance, setRiskTolerance]           = useState("");
   const [selectedRegion, setSelectedRegion]         = useState<RegionOption | null>(null);
@@ -63,6 +66,8 @@ export default function SettingsPage() {
         setProfile(p);
         setRiskTolerance(p.risk_tolerance);
         setLearningInterests(p.learning_interests);
+        setModelMode(p.preferred_ai_model ?? "auto");
+        setNotifyDailyAction(p.notify_daily_action ?? false);
         const found = REGION_MAP.get(p.preferred_region_code);
         setSelectedRegion(found ?? null);
       })
@@ -78,6 +83,8 @@ export default function SettingsPage() {
         preferred_region:      selectedRegion?.label ?? "",
         preferred_region_code: selectedRegion?.code  ?? "",
         learning_interests:    learningInterests,
+        preferred_ai_model:    modelMode,
+        notify_daily_action:   notifyDailyAction,
       });
       setToast("프로필이 저장되었습니다.");
     } catch {
@@ -235,11 +242,12 @@ export default function SettingsPage() {
         <div className="space-y-2">
           {MODEL_OPTIONS.map((model) => (
             <button
-              key={model.label}
-              onClick={() => setModelMode(model.label)}
+              key={model.value}
+              type="button"
+              onClick={() => setModelMode(model.value)}
               className={[
                 "w-full rounded-[var(--radius-2xl)] border p-3 text-left transition-all",
-                modelMode === model.label
+                modelMode === model.value
                   ? "border-[#2563EB] bg-[#2563EB]/5"
                   : "border-slate-200 bg-slate-50 hover:border-slate-300",
               ].join(" ")}
@@ -249,13 +257,13 @@ export default function SettingsPage() {
                   <p className="text-sm font-black text-[#0B132B]">{model.label}</p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">{model.desc}</p>
                 </div>
-                {modelMode === model.label && <Badge tone="blue">선택됨</Badge>}
+                {modelMode === model.value && <Badge tone="blue">선택됨</Badge>}
               </div>
             </button>
           ))}
         </div>
         <p className="mt-3 text-[10px] text-slate-400">
-          모델 선택은 현재 UI 표시 전용입니다. 실제 모델 연동은 추후 업데이트됩니다.
+          선택한 모델은 저장됩니다. 현재 Gemma 4 E2B(온디바이스)만 활성 지원되며, 나머지는 추후 순차 적용됩니다.
         </p>
       </Card>
 
@@ -281,19 +289,33 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* 알림 설정 (stub) */}
+      {/* 알림 설정 */}
       <Card variant="outlined" className="mb-4">
         <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">알림 설정</p>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-[var(--color-text)]">일일 행동 알림</p>
-            <p className="text-xs text-[var(--color-text-sub)]">매일 오전 8시 푸시 알림</p>
+            <p className="text-xs text-[var(--color-text-sub)]">매일 오전 6시 행동 생성 알림</p>
           </div>
-          <div className="flex h-6 w-11 items-center rounded-full bg-[var(--color-border)] px-0.5 opacity-50 cursor-not-allowed">
+          <button
+            type="button"
+            onClick={() => setNotifyDailyAction((prev) => !prev)}
+            className={[
+              "flex h-6 w-11 items-center rounded-full px-0.5 transition-all",
+              notifyDailyAction
+                ? "bg-[var(--color-point)] justify-end"
+                : "bg-[var(--color-border)] justify-start",
+            ].join(" ")}
+            role="switch"
+            aria-checked={notifyDailyAction}
+            aria-label="일일 행동 알림"
+          >
             <div className="h-5 w-5 rounded-full bg-white shadow" />
-          </div>
+          </button>
         </div>
-        <p className="mt-2 text-[10px] text-[var(--color-text-sub)]">푸시 알림 기능은 준비 중입니다.</p>
+        <p className="mt-2 text-[10px] text-[var(--color-text-sub)]">
+          설정 저장 시 적용됩니다. 실제 푸시 알림은 추후 지원됩니다.
+        </p>
       </Card>
 
       {/* 온보딩 재설정 */}
