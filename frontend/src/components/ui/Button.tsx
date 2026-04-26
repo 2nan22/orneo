@@ -19,8 +19,9 @@ const variantStyles: Record<Variant, string> = {
     "text-[var(--color-text-sub)] hover:bg-[var(--color-bg)] active:bg-[var(--color-border)] focus-visible:ring-[var(--color-primary)]",
   danger:
     "text-white font-semibold bg-[var(--color-danger)] hover:opacity-90 active:opacity-80 focus-visible:ring-[var(--color-danger)]",
+  // #0B132B on #00C2A8 = ~8.0:1 (WCAG AA 통과)
   point:
-    "text-[var(--color-text)] font-semibold bg-[var(--color-point)] hover:opacity-90 active:opacity-80 focus-visible:ring-[var(--color-point)]",
+    "text-[#0B132B] font-semibold bg-[#00C2A8] hover:bg-[#00a896] active:opacity-80 focus-visible:ring-[var(--color-point)]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

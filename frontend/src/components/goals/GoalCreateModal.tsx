@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { api } from "@/lib/api";
 import type { Goal, GoalCategory } from "@/lib/types";
 import Button from "@/components/ui/Button";
@@ -30,6 +31,8 @@ export default function GoalCreateModal({ onClose, onCreated }: Props) {
   const [toast, setToast] = useState("");
 
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef  = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
 
   // ESC 닫기
   useEffect(() => {
@@ -77,9 +80,15 @@ export default function GoalCreateModal({ onClose, onCreated }: Props) {
           if (e.target === overlayRef.current) onClose();
         }}
       >
-        <div className="w-full max-w-md rounded-2xl bg-[var(--color-card)] p-6 shadow-xl">
+        <div
+          ref={dialogRef}
+          className="w-full max-w-md rounded-2xl bg-[var(--color-card)] p-6 shadow-xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="goal-modal-title"
+        >
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[var(--color-text)]">목표 추가</h2>
+            <h2 id="goal-modal-title" className="text-lg font-bold text-[var(--color-text)]">목표 추가</h2>
             <button
               onClick={onClose}
               className="rounded-lg p-1 text-[var(--color-text-sub)] hover:bg-[var(--color-bg)]"

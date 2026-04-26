@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import { api } from "@/lib/api";
@@ -26,7 +27,9 @@ export default function GoalProgressModal({ goal, onClose, onUpdated }: Props) {
   const [saving, setSaving]       = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [toast, setToast]         = useState<string | null>(null);
-  const overlayRef                = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef  = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -72,10 +75,11 @@ export default function GoalProgressModal({ goal, onClose, onUpdated }: Props) {
         onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       >
         <div
+          ref={dialogRef}
           className="w-full max-w-md rounded-t-[var(--radius-3xl)] bg-[var(--color-card)] px-6 pt-6 pb-8 shadow-[var(--shadow-modal)]"
           role="dialog"
           aria-modal="true"
-          aria-label="목표 진척도 수정"
+          aria-labelledby="progress-modal-title"
         >
           {/* 드래그 핸들 */}
           <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--color-border)]" />
@@ -83,7 +87,7 @@ export default function GoalProgressModal({ goal, onClose, onUpdated }: Props) {
           {/* 헤더 */}
           <div className="mb-5">
             <p className="text-xs font-black tracking-[0.2em] text-[#2563EB]">GOAL UPDATE</p>
-            <h2 className="mt-1 text-lg font-black leading-snug text-[#0B132B]">
+            <h2 id="progress-modal-title" className="mt-1 text-lg font-black leading-snug text-[#0B132B]">
               {goal.title}
             </h2>
           </div>
