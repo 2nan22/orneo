@@ -99,6 +99,8 @@ export default function DashboardPage() {
         <HeroScoreCard
           score={d.score}
           measureMode={measureMode}
+          summaryText={d.brief_summary || undefined}
+          deltaScore={d.delta?.score}
           className="sm:col-start-1 sm:row-start-1"
         />
 

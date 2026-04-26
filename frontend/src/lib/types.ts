@@ -38,6 +38,7 @@ export type DashboardData = {
   delta: ScoreDelta | null;
   key_question: string;
   today_actions: TodayAction[];
+  brief_summary: string;
 };
 
 export type DecisionScenarioData = {
