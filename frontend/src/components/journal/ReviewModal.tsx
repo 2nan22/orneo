@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import DecisionStudio from "./DecisionStudio";
-import type { JournalEntry } from "@/lib/types";
+import type { DecisionScenarioData, JournalEntry } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<string, string> = {
   investment: "투자",
@@ -20,8 +20,12 @@ interface Props {
 }
 
 export default function ReviewModal({ entry, onClose, onSave }: Props) {
-  const [memo, setMemo] = useState(entry.review_memo ?? "");
-  const [saving, setSaving] = useState(false);
+  const [memo,     setMemo]     = useState(entry.review_memo ?? "");
+  const [saving,   setSaving]   = useState(false);
+  const [scenario, setScenario] = useState<DecisionScenarioData | null | undefined>(
+    entry.decision_scenario,
+  );
+  const [generating, setGenerating] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // ESC 키 닫기
@@ -39,6 +43,22 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
       await onSave(memo);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleGenerateScenario() {
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/v1/journals/${entry.id}/scenarios/`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (res.ok && json.status === "success") {
+        setScenario(json.data);
+      }
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -95,21 +115,34 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
         {/* DecisionStudio — investment·housing 카테고리만 표시 */}
         {(entry.category === "investment" || entry.category === "housing") && (
           <div className="mx-6 mt-3">
-            {entry.decision_scenario ? (
+            {scenario ? (
               <DecisionStudio
-                topic={entry.decision_scenario.topic}
-                evidenceChips={entry.decision_scenario.evidence_chips}
-                scenarios={entry.decision_scenario.scenarios}
-                disclaimer={entry.decision_scenario.disclaimer}
+                topic={scenario.topic}
+                evidenceChips={scenario.evidence_chips}
+                scenarios={scenario.scenarios}
+                disclaimer={scenario.disclaimer}
               />
             ) : (
-              <DecisionStudio
-                topic={entry.title}
-                evidenceChips={[]}
-                scenarios={[]}
-                disclaimer=""
-                isLoading
-              />
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-5 text-center">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-point)]">
+                  Decision Studio
+                </p>
+                <p className="mb-3 text-xs text-[var(--color-text-sub)]">
+                  이 일지에 대한 AI 시나리오가 아직 없습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGenerateScenario}
+                  disabled={generating}
+                  className="rounded-lg border border-[var(--color-primary)] px-4 py-1.5
+                             text-xs font-medium text-[var(--color-primary)]
+                             hover:bg-[var(--color-primary)] hover:text-white
+                             disabled:cursor-not-allowed disabled:opacity-50
+                             transition-colors"
+                >
+                  {generating ? "생성 중..." : "시나리오 생성하기"}
+                </button>
+              </div>
             )}
           </div>
         )}

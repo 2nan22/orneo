@@ -83,6 +83,39 @@ def _get_journal_or_raise(journal_id: int) -> JournalEntry:
     return entry
 
 
+def generate_scenarios_for_entry(*, entry: JournalEntry) -> "DecisionScenario":
+    """일지의 의사결정 시나리오를 즉시(동기) 생성하거나 기존 시나리오를 반환한다.
+
+    Celery 없이 요청 즉시 AI 서비스를 호출한다.
+    AI 서비스 불가 시 fallback 시나리오를 저장한다.
+
+    Args:
+        entry: 시나리오를 생성할 JournalEntry 인스턴스.
+
+    Returns:
+        저장된 DecisionScenario 인스턴스.
+    """
+    from apps.journal.models import DecisionScenario
+    from apps.journal.tasks import _save_fallback_scenarios, build_scenarios_sync
+
+    existing = DecisionScenario.objects.filter(journal_entry=entry).first()
+    if existing:
+        return existing
+
+    data = build_scenarios_sync(entry=entry)
+    scenario, _ = DecisionScenario.objects.get_or_create(
+        journal_entry=entry,
+        defaults={
+            "topic":          data.get("topic", entry.title),
+            "evidence_chips": data.get("evidence_chips", []),
+            "scenarios":      data.get("scenarios", []),
+            "model_used":     data.get("model_used", "unknown"),
+        },
+    )
+    logger.info("시나리오 온디맨드 생성 완료: journal_id=%d model=%s", entry.pk, scenario.model_used)
+    return scenario
+
+
 def get_journal_for_user(*, journal_id: int, user: CustomUser) -> JournalEntry:
     """일지를 조회하고 요청 사용자의 소유 여부를 검증한다.
 
