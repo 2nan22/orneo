@@ -7,7 +7,7 @@ import PageContainer from "@/components/ui/PageContainer";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import FinanceEventCard from "@/components/finance/FinanceEventCard";
-import type { MeasureMode } from "@/components/ui/MeasurementToggle";
+import { useMeasureMode } from "@/lib/measureModeContext";
 
 const FINANCE_CATEGORIES = [
   { label: "주식",      desc: "가격 변동 이유와 투자 가설",  icon: "growth"   },
@@ -120,7 +120,7 @@ function CategoryIcon({ name }: { name: string }) {
 }
 
 export default function FinancePage() {
-  const [measureMode] = useState<MeasureMode>("score");
+  const { measureMode } = useMeasureMode();
   const [searchQuery, setSearchQuery] = useState("삼성전자 · 최근 18개월 변동 이유");
 
   return (

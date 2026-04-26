@@ -8,7 +8,9 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
+import MeasurementToggle from "@/components/ui/MeasurementToggle";
 import { api } from "@/lib/api";
+import { useMeasureMode } from "@/lib/measureModeContext";
 import { REGION_GROUPS, REGION_LIST, REGION_MAP, type RegionOption } from "@/lib/regionList";
 
 type Profile = {
@@ -44,6 +46,7 @@ const DATA_SOURCES = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { measureMode, setMeasureMode } = useMeasureMode();
   const [profile, setProfile]               = useState<Profile | null>(null);
   const [loading, setLoading]               = useState(true);
   const [saving, setSaving]                 = useState(false);
@@ -124,6 +127,17 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-1">
           <p className="text-sm text-[var(--color-text-sub)]">{profile?.email}</p>
           <p className="text-xs text-[var(--color-text-sub)]">@{profile?.username}</p>
+        </div>
+      </Card>
+
+      {/* 측정값 표시 방식 */}
+      <Card className="mb-4 p-5">
+        <h2 className="text-base font-black text-[#0B132B]">측정값 표시 방식</h2>
+        <p className="mt-1 text-sm text-[#334155]">
+          점수와 퍼센트가 부담스럽다면 5단계 레벨로 볼 수 있어요.
+        </p>
+        <div className="mt-4">
+          <MeasurementToggle mode={measureMode} setMode={setMeasureMode} />
         </div>
       </Card>
 
