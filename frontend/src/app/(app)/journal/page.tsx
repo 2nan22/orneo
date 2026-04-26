@@ -91,9 +91,12 @@ export default function JournalPage() {
 
   return (
     <PageContainer size="md">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">의사결정 일지</h1>
-        <Link href="/journal/new">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black tracking-[0.22em] text-[#2563EB]">DECISION LOG</p>
+          <h1 className="mt-2 text-3xl font-black tracking-[-0.07em] text-[#0B132B]">의사결정 일지</h1>
+        </div>
+        <Link href="/journal/new" className="shrink-0 mt-2">
           <Button>새 일지 작성</Button>
         </Link>
       </div>
@@ -103,8 +106,10 @@ export default function JournalPage() {
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <span className="text-sm text-[var(--color-text-sub)]">불러오는 중...</span>
+        <div className="flex flex-col gap-3 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-[var(--radius-2xl)] bg-[var(--color-border)]" />
+          ))}
         </div>
       ) : entries.length === 0 ? (
         <Card variant="outlined" className="py-12 text-center">

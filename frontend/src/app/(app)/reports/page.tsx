@@ -8,6 +8,8 @@ import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
+import MeasurementToggle from "@/components/ui/MeasurementToggle";
+import type { MeasureMode } from "@/components/ui/MeasurementToggle";
 
 function getPreviousMonday(): string {
   const today = new Date();
@@ -23,6 +25,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [measureMode, setMeasureMode] = useState<MeasureMode>("score");
 
   useEffect(() => {
     fetchLatestReport();
@@ -55,18 +58,23 @@ export default function ReportsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <span className="text-sm text-[var(--color-text-sub)]">불러오는 중...</span>
-      </div>
-    );
-  }
-
   return (
     <PageContainer size="lg">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">주간 복기 리포트</h1>
+      {/* 페이지 헤더 */}
+      <div className="mb-5">
+        <p className="text-xs font-black tracking-[0.22em] text-[#2563EB]">WEEKLY REVIEW</p>
+        <h1 className="mt-2 text-3xl font-black tracking-[-0.07em] text-[#0B132B]">
+          지난주 복기 리포트
+        </h1>
+        <p className="mt-2 whitespace-pre-line text-sm text-[#334155]">
+          {"ORNEO AI가 실행 데이터와 일지를 분석해요.\n다음 주 핵심 행동을 하나로 줄여줍니다."}
+        </p>
+      </div>
+
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="flex-1 max-w-xs">
+          <MeasurementToggle mode={measureMode} setMode={setMeasureMode} />
+        </div>
         <Button variant="outline" onClick={handleGenerate} loading={generating}>
           리포트 생성
         </Button>
@@ -78,8 +86,14 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {report ? (
-        <WeeklyReportCard report={report} />
+      {loading ? (
+        <div className="flex flex-col gap-3 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-[var(--radius-2xl)] bg-[var(--color-border)]" />
+          ))}
+        </div>
+      ) : report ? (
+        <WeeklyReportCard report={report} measureMode={measureMode} />
       ) : (
         <Card variant="outlined" className="flex flex-col items-center gap-4 py-16 text-center">
           <p className="text-sm text-[var(--color-text-sub)]">

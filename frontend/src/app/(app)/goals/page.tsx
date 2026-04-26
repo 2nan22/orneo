@@ -91,8 +91,9 @@ export default function GoalsPage() {
 
   return (
     <PageContainer size="md">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">목표 관리</h1>
+      <div className="mb-5">
+        <p className="text-xs font-black tracking-[0.22em] text-[#2563EB]">GOALS</p>
+        <h1 className="mt-2 text-3xl font-black tracking-[-0.07em] text-[#0B132B]">목표 관리</h1>
       </div>
 
       {/* Category tabs */}
@@ -115,8 +116,10 @@ export default function GoalsPage() {
 
       {/* Goal list */}
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <span className="text-sm text-[var(--color-text-sub)]">불러오는 중...</span>
+        <div className="flex flex-col gap-3 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-[var(--radius-2xl)] bg-[var(--color-border)]" />
+          ))}
         </div>
       ) : displayed.length === 0 ? (
         <Card variant="outlined" className="flex flex-col items-center justify-center py-10 text-center">
