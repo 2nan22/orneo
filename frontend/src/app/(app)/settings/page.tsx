@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageContainer from "@/components/ui/PageContainer";
 import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import { api } from "@/lib/api";
@@ -27,16 +28,31 @@ const RISK_OPTIONS = [
 
 const INTEREST_TAGS = ["IT", "금융", "부동산", "자기계발", "언어", "창업", "건강", "예술"];
 
+const MODEL_OPTIONS = [
+  { label: "자동 선택",    desc: "ORNEO AI가 작업에 맞춰 모델을 선택합니다." },
+  { label: "Gemma 4 E2B", desc: "온디바이스 요약·마스킹에 적합합니다." },
+  { label: "Qwen 2.5",    desc: "로컬 추론·문서 분류에 적합합니다." },
+  { label: "서버 고성능",  desc: "심층 리서치와 장문 보고서에 적합합니다." },
+];
+
+const DATA_SOURCES = [
+  { name: "MOLIT",      label: "부동산 실거래가", value: "연결됨" },
+  { name: "DART",       label: "공시·재무 이벤트", value: "연결됨" },
+  { name: "K-MOOC",     label: "학습 추천",       value: "연결됨" },
+  { name: "Web Search", label: "뉴스·정책 근거",   value: "준비됨" },
+];
+
 export default function SettingsPage() {
   const router = useRouter();
   const [profile, setProfile]               = useState<Profile | null>(null);
   const [loading, setLoading]               = useState(true);
   const [saving, setSaving]                 = useState(false);
   const [toast, setToast]                   = useState<string | null>(null);
+  const [modelMode, setModelMode]           = useState("자동 선택");
 
-  const [riskTolerance, setRiskTolerance]       = useState("");
-  const [selectedRegion, setSelectedRegion]     = useState<RegionOption | null>(null);
-  const [learningInterests, setLearningInterests] = useState<string[]>([]);
+  const [riskTolerance, setRiskTolerance]           = useState("");
+  const [selectedRegion, setSelectedRegion]         = useState<RegionOption | null>(null);
+  const [learningInterests, setLearningInterests]   = useState<string[]>([]);
 
   useEffect(() => {
     api.get<Profile>("/auth/profile")
@@ -44,7 +60,6 @@ export default function SettingsPage() {
         setProfile(p);
         setRiskTolerance(p.risk_tolerance);
         setLearningInterests(p.learning_interests);
-        // 저장된 코드로 드롭다운 초기값 복원
         const found = REGION_MAP.get(p.preferred_region_code);
         setSelectedRegion(found ?? null);
       })
@@ -85,8 +100,8 @@ export default function SettingsPage() {
       <PageContainer size="sm">
         <div className="animate-pulse flex flex-col gap-4">
           <div className="h-8 w-32 rounded bg-[var(--color-border)]" />
-          <div className="h-40 rounded-xl bg-[var(--color-border)]" />
-          <div className="h-32 rounded-xl bg-[var(--color-border)]" />
+          <div className="h-40 rounded-[var(--radius-2xl)] bg-[var(--color-border)]" />
+          <div className="h-32 rounded-[var(--radius-2xl)] bg-[var(--color-border)]" />
         </div>
       </PageContainer>
     );
@@ -94,7 +109,14 @@ export default function SettingsPage() {
 
   return (
     <PageContainer size="sm">
-      <h1 className="mb-6 text-[22px] font-bold text-[var(--color-text)]">설정</h1>
+      {/* 페이지 헤더 */}
+      <div className="mb-5">
+        <p className="text-xs font-black tracking-[0.22em] text-[#2563EB]">SETTINGS</p>
+        <h1 className="mt-2 text-3xl font-black tracking-[-0.07em] text-[#0B132B]">설정</h1>
+        <p className="mt-2 whitespace-pre-line text-sm text-[#334155]">
+          {"표현 방식과 AI 실행 방식을 관리합니다.\n모델 이름은 설정 화면에서만 노출됩니다."}
+        </p>
+      </div>
 
       {/* 계정 정보 (읽기 전용) */}
       <Card className="mb-4">
@@ -185,6 +207,64 @@ export default function SettingsPage() {
         <Button variant="primary" size="md" fullWidth onClick={handleSave} loading={saving}>
           변경 사항 저장
         </Button>
+      </Card>
+
+      {/* AI 모델 선택 카드 */}
+      <Card className="mb-4 p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-black tracking-wide text-[#2563EB]">ORNEO AI ENGINE</p>
+            <h2 className="text-lg font-black text-[#0B132B]">모델 선택</h2>
+          </div>
+          <Badge tone="violet">설정 전용</Badge>
+        </div>
+        <div className="space-y-2">
+          {MODEL_OPTIONS.map((model) => (
+            <button
+              key={model.label}
+              onClick={() => setModelMode(model.label)}
+              className={[
+                "w-full rounded-[var(--radius-2xl)] border p-3 text-left transition-all",
+                modelMode === model.label
+                  ? "border-[#2563EB] bg-[#2563EB]/5"
+                  : "border-slate-200 bg-slate-50 hover:border-slate-300",
+              ].join(" ")}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#0B132B]">{model.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{model.desc}</p>
+                </div>
+                {modelMode === model.label && <Badge tone="blue">선택됨</Badge>}
+              </div>
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] text-slate-400">
+          모델 선택은 현재 UI 표시 전용입니다. 실제 모델 연동은 추후 업데이트됩니다.
+        </p>
+      </Card>
+
+      {/* 데이터 연결 카드 */}
+      <Card className="mb-4 p-5">
+        <h2 className="mb-3 text-lg font-black text-[#0B132B]">데이터 연결</h2>
+        <div className="grid gap-2">
+          {DATA_SOURCES.map((source) => (
+            <div
+              key={source.name}
+              className="flex items-center justify-between
+                         rounded-[var(--radius-2xl)] bg-slate-50 p-3"
+            >
+              <div>
+                <p className="text-sm font-black text-[#0B132B]">{source.name}</p>
+                <p className="text-xs text-slate-500">{source.label}</p>
+              </div>
+              <Badge tone={source.value === "연결됨" ? "green" : "amber"}>
+                {source.value}
+              </Badge>
+            </div>
+          ))}
+        </div>
       </Card>
 
       {/* 알림 설정 (stub) */}
