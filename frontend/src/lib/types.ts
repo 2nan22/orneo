@@ -66,12 +66,25 @@ export type JournalEntry = {
   dart_corp_code: string;
   dart_corp_name: string;
   ai_summary: string | null;
+  action_items: string[];
   mood_score: number | null;
   is_reviewed: boolean;
   review_memo: string | null;
   created_at: string;
   related_goal: number | null;
   decision_scenario?: DecisionScenarioData | null;
+};
+
+/** Finance 화면의 이벤트 카드 데이터 구조 */
+export type FinanceEvent = {
+  id:        number;
+  title:     string;
+  type:      "주식" | "부동산" | "금리·환율" | "공시";
+  move:      string;
+  context:   string;
+  direction: string;
+  value:     number;
+  source:    "journal";
 };
 
 export type GoalCategory = "finance" | "housing" | "learning" | "routine";
