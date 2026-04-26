@@ -12,6 +12,22 @@ from django.http import HttpRequest
 logger = logging.getLogger(__name__)
 
 
+class PatchedGoogleOAuth2Adapter:
+    """dj_rest_auth + allauth 65.x 호환 패치 어댑터 믹스인.
+
+    dj_rest_auth 7.x는 code 교환 시 adapter.did_fetch_access_token을 설정하지 않아
+    allauth 65.x가 id_token 서명 검증을 시도하다 실패한다.
+    코드 교환은 서버 간 TLS 채널에서 이루어지므로 OpenID Connect Core 1.0 spec 3.1.3.7에
+    따라 서명 검증을 생략할 수 있다.
+    """
+
+    def complete_login(self, request: HttpRequest, app, token, **kwargs):
+        """서버 측 code 교환임을 명시하고 상위 로직을 호출한다."""
+        # dj_rest_auth는 get_access_token_data()를 거치지 않으므로 직접 플래그를 설정한다.
+        self.did_fetch_access_token = True
+        return super().complete_login(request, app, token, **kwargs)
+
+
 class NaverSocialAccountAdapter(DefaultSocialAccountAdapter):
     """Naver 소셜 계정 어댑터.
 

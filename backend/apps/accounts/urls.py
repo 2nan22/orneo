@@ -21,8 +21,13 @@ try:
     from allauth.socialaccount.providers.oauth2.client import OAuth2Client
     from dj_rest_auth.registration.views import SocialLoginView
 
+    from apps.accounts.adapters import PatchedGoogleOAuth2Adapter
+
+    class _PatchedGoogleAdapter(PatchedGoogleOAuth2Adapter, GoogleOAuth2Adapter):
+        """dj_rest_auth + allauth 65.x 호환 Google 어댑터."""
+
     class GoogleLoginView(SocialLoginView):
-        adapter_class = GoogleOAuth2Adapter
+        adapter_class = _PatchedGoogleAdapter
         client_class = OAuth2Client
         callback_url = _GOOGLE_CALLBACK_URL
 

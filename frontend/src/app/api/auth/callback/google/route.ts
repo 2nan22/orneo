@@ -32,10 +32,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=server", req.url));
   }
 
-  const data = await djangoRes.json();
-
   if (!djangoRes.ok) {
     return NextResponse.redirect(new URL("/login?error=auth_failed", req.url));
+  }
+
+  let data: Record<string, string>;
+  try {
+    data = await djangoRes.json();
+  } catch {
+    return NextResponse.redirect(new URL("/login?error=server", req.url));
   }
 
   const destination = new URL("/dashboard", req.url);
