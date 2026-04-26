@@ -29,6 +29,8 @@ def create_journal(
     content: str,
     mood_score: int | None = None,
     related_goal_id: int | None = None,
+    dart_corp_code: str = "",
+    dart_corp_name: str = "",
 ) -> JournalEntry:
     """의사결정 일지를 생성하고 AI 요약 태스크를 큐에 등록한다.
 
@@ -39,6 +41,8 @@ def create_journal(
         content: 판단의 이유·근거.
         mood_score: 감정 점수 (1~5, 선택).
         related_goal_id: 연관 목표 PK (선택).
+        dart_corp_code: DART 기업 고유번호 (투자 카테고리 선택 시, 선택).
+        dart_corp_name: DART 기업명 (투자 카테고리 선택 시, 선택).
 
     Returns:
         생성된 JournalEntry 인스턴스.
@@ -50,6 +54,8 @@ def create_journal(
         content=content,
         mood_score=mood_score,
         related_goal_id=related_goal_id,
+        dart_corp_code=dart_corp_code,
+        dart_corp_name=dart_corp_name,
     )
     transaction.on_commit(lambda: _enqueue_summary_task(entry.pk))
     logger.info("일지 생성 완료: id=%d user_id=%d category=%s", entry.pk, user.pk, category)
@@ -83,7 +89,9 @@ def _get_journal_or_raise(journal_id: int) -> JournalEntry:
     return entry
 
 
-def generate_scenarios_for_entry(*, entry: JournalEntry) -> "DecisionScenario":
+def generate_scenarios_for_entry(
+    *, entry: JournalEntry, force: bool = False
+) -> "DecisionScenario":
     """일지의 의사결정 시나리오를 즉시(동기) 생성하거나 기존 시나리오를 반환한다.
 
     Celery 없이 요청 즉시 AI 서비스를 호출한다.
@@ -91,16 +99,20 @@ def generate_scenarios_for_entry(*, entry: JournalEntry) -> "DecisionScenario":
 
     Args:
         entry: 시나리오를 생성할 JournalEntry 인스턴스.
+        force: True이면 기존 시나리오를 삭제하고 재생성한다.
 
     Returns:
         저장된 DecisionScenario 인스턴스.
     """
     from apps.journal.models import DecisionScenario
-    from apps.journal.tasks import _save_fallback_scenarios, build_scenarios_sync
+    from apps.journal.tasks import build_scenarios_sync
 
-    existing = DecisionScenario.objects.filter(journal_entry=entry).first()
-    if existing:
-        return existing
+    if force:
+        DecisionScenario.objects.filter(journal_entry=entry).delete()
+    else:
+        existing = DecisionScenario.objects.filter(journal_entry=entry).first()
+        if existing:
+            return existing
 
     data = build_scenarios_sync(entry=entry)
     scenario, _ = DecisionScenario.objects.get_or_create(
@@ -112,7 +124,10 @@ def generate_scenarios_for_entry(*, entry: JournalEntry) -> "DecisionScenario":
             "model_used":     data.get("model_used", "unknown"),
         },
     )
-    logger.info("시나리오 온디맨드 생성 완료: journal_id=%d model=%s", entry.pk, scenario.model_used)
+    logger.info(
+        "시나리오 온디맨드 생성 완료: journal_id=%d model=%s force=%s",
+        entry.pk, scenario.model_used, force,
+    )
     return scenario
 
 
