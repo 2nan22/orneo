@@ -8,7 +8,7 @@ import pytest
 from apps.accounts.models import CustomUser
 from apps.goals.exceptions import GoalPermissionError
 from apps.goals.models import Goal, GoalCategory
-from apps.goals.services import create_goal, update_goal_progress
+from apps.goals.services import create_goal, update_goal
 
 
 @pytest.fixture
@@ -44,6 +44,19 @@ def test_create_goal_success(user_a: CustomUser) -> None:
 
 
 @pytest.mark.django_db
+def test_create_goal_with_amount(user_a: CustomUser) -> None:
+    """금액 포함 목표 생성이 정상적으로 동작한다."""
+    goal = create_goal(
+        user=user_a,
+        category=GoalCategory.FINANCIAL,
+        title="비상금 목표",
+        target_amount=10_000_000,
+    )
+
+    assert goal.target_amount == 10_000_000
+
+
+@pytest.mark.django_db
 def test_update_goal_progress_success(user_a: CustomUser) -> None:
     """목표 진척도 업데이트가 정상적으로 동작한다."""
     goal = create_goal(
@@ -52,13 +65,27 @@ def test_update_goal_progress_success(user_a: CustomUser) -> None:
         title="독서 12권 완독",
     )
 
-    updated = update_goal_progress(goal_id=goal.pk, user=user_a, progress=0.5)
+    updated = update_goal(goal_id=goal.pk, user=user_a, data={"progress": 0.5})
 
     assert updated.progress == 0.5
 
 
 @pytest.mark.django_db
-def test_update_goal_progress_raises_for_other_user(
+def test_deactivate_goal(user_a: CustomUser) -> None:
+    """목표 비활성화가 정상적으로 동작한다."""
+    goal = create_goal(
+        user=user_a,
+        category=GoalCategory.ROUTINE,
+        title="매일 운동 30분",
+    )
+
+    updated = update_goal(goal_id=goal.pk, user=user_a, data={"is_active": False})
+
+    assert updated.is_active is False
+
+
+@pytest.mark.django_db
+def test_update_goal_raises_for_other_user(
     user_a: CustomUser, user_b: CustomUser
 ) -> None:
     """다른 사용자의 목표 수정 시 GoalPermissionError가 발생한다."""
@@ -69,4 +96,4 @@ def test_update_goal_progress_raises_for_other_user(
     )
 
     with pytest.raises(GoalPermissionError):
-        update_goal_progress(goal_id=goal.pk, user=user_b, progress=0.3)
+        update_goal(goal_id=goal.pk, user=user_b, data={"progress": 0.3})

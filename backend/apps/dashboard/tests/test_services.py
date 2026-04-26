@@ -80,3 +80,38 @@ def test_calculate_capital_score_upserts_snapshot(user: CustomUser) -> None:
     calculate_capital_score(user=user)
 
     assert CapitalScoreSnapshot.objects.filter(user=user).count() == 1
+
+
+@pytest.mark.django_db
+def test_get_delta_no_snapshot_returns_none(user: CustomUser) -> None:
+    """스냅샷이 없으면 _get_delta는 None을 반환한다."""
+    from django.utils import timezone
+
+    from apps.dashboard.views import _get_delta
+
+    today = timezone.localdate()
+    result = _get_delta(user=user, today=today)
+
+    assert result is None
+
+
+@pytest.mark.django_db
+def test_get_delta_with_single_snapshot_returns_none(user: CustomUser) -> None:
+    """오늘 스냅샷만 있고 비교 기준 스냅샷이 없으면 None을 반환한다."""
+    from django.utils import timezone
+
+    from apps.dashboard.views import _get_delta
+
+    today = timezone.localdate()
+    CapitalScoreSnapshot.objects.create(
+        user=user,
+        score_date=today,
+        capital_score=50.0,
+        asset_stability=60.0,
+        goal_progress=40.0,
+        routine_score=30.0,
+    )
+
+    result = _get_delta(user=user, today=today)
+
+    assert result is None
