@@ -8,8 +8,7 @@ import WeeklyReportCard from "@/components/reports/WeeklyReportCard";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
-import MeasurementToggle from "@/components/ui/MeasurementToggle";
-import type { MeasureMode } from "@/components/ui/MeasurementToggle";
+import { useMeasureMode } from "@/lib/measureModeContext";
 
 function getPreviousMonday(): string {
   const today = new Date();
@@ -25,7 +24,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [measureMode, setMeasureMode] = useState<MeasureMode>("score");
+  const { measureMode } = useMeasureMode();
 
   useEffect(() => {
     fetchLatestReport();
@@ -71,10 +70,7 @@ export default function ReportsPage() {
         </p>
       </div>
 
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <div className="flex-1 max-w-xs">
-          <MeasurementToggle mode={measureMode} setMode={setMeasureMode} />
-        </div>
+      <div className="mb-5 flex justify-end">
         <Button variant="outline" onClick={handleGenerate} loading={generating}>
           리포트 생성
         </Button>

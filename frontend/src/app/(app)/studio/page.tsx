@@ -8,7 +8,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Progress from "@/components/ui/Progress";
 import LevelDots from "@/components/ui/LevelDots";
-import type { MeasureMode } from "@/components/ui/MeasurementToggle";
+import { useMeasureMode } from "@/lib/measureModeContext";
 
 const FLOW_STEPS = [
   "개인 메모를 먼저 요약합니다.",
@@ -23,7 +23,7 @@ const METRICS = [
 ];
 
 export default function StudioPage() {
-  const [measureMode] = useState<MeasureMode>("score");
+  const { measureMode } = useMeasureMode();
   const [query, setQuery] = useState("성동구 전세 vs 외곽 매수?");
 
   return (
