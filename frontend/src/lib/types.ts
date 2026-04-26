@@ -100,6 +100,7 @@ export type Goal = {
   target_amount: number | null;
   target_date: string | null;
   progress: number;
+  is_active: boolean;
   created_at: string;
 };
 
