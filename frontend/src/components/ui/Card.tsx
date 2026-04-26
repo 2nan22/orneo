@@ -14,13 +14,13 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const variantStyles: Record<CardVariant, string> = {
   default:
-    "bg-[var(--color-card)] shadow-[var(--shadow-card)] rounded-[var(--radius-xl)]",
+    "bg-[var(--color-card)] shadow-[var(--shadow-card)] rounded-[var(--radius-2xl)]",
   gradient:
-    "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-end)] text-white shadow-[var(--shadow-card)] rounded-[var(--radius-xl)]",
+    "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-end)] text-white shadow-[var(--shadow-card)] rounded-[var(--radius-2xl)]",
   point:
-    "bg-[var(--color-point-light)] border border-[var(--color-point)] rounded-[var(--radius-xl)]",
+    "bg-[var(--color-point-light)] border border-[var(--color-point)] rounded-[var(--radius-2xl)]",
   outlined:
-    "border border-[var(--color-border)] rounded-[var(--radius-xl)]",
+    "border border-[var(--color-border)] rounded-[var(--radius-2xl)]",
 };
 
 const paddingStyles: Record<CardPadding, string> = {

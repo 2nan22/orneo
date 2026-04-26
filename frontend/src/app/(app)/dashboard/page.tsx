@@ -82,7 +82,13 @@ export default function DashboardPage() {
 
   return (
     <PageContainer size="lg">
-      {/* 측정 모드 토글 — 상단 고정 */}
+      {/* 페이지 헤더 */}
+      <div className="mb-4">
+        <p className="text-xs font-black tracking-[0.22em] text-[#2563EB]">LIFE CAPITAL OS</p>
+        <h1 className="mt-2 text-3xl font-black tracking-[-0.07em] text-[#0B132B]">오늘의 대시보드</h1>
+      </div>
+
+      {/* 측정 모드 토글 */}
       <div className="mb-5">
         <MeasurementToggle mode={measureMode} setMode={setMeasureMode} />
       </div>
