@@ -29,6 +29,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: 10000000,
     target_date: "2025-12-31",
     progress: 0.62,
+    is_active: true,
     created_at: "2025-01-01T00:00:00Z",
   },
   {
@@ -39,6 +40,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: null,
     target_date: "2025-06-30",
     progress: 0.45,
+    is_active: true,
     created_at: "2025-01-15T00:00:00Z",
   },
   {
@@ -49,6 +51,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: null,
     target_date: "2025-03-01",
     progress: 0.8,
+    is_active: true,
     created_at: "2025-02-01T00:00:00Z",
   },
   {
@@ -59,6 +62,7 @@ const MOCK_GOALS: Goal[] = [
     target_amount: null,
     target_date: null,
     progress: 0.33,
+    is_active: true,
     created_at: "2025-02-10T00:00:00Z",
   },
 ];
