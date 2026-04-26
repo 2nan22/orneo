@@ -85,18 +85,61 @@ async def get_apartment_transactions(
 
 
 @router.get(
+    "/dart/corps",
+    summary="DART 기업 검색",
+)
+async def search_dart_corps(
+    keyword: str = Query(..., description="회사명 검색어 (예: 삼성)"),
+) -> dict:
+    """DART에서 기업명으로 회사 목록을 검색한다.
+
+    MVP: company.json으로 정확히 일치하는 단일 기업을 반환한다.
+
+    Args:
+        keyword: 회사명 검색어.
+
+    Returns:
+        기업 코드와 이름 목록.
+
+    Raises:
+        HTTPException: API 키 미설정 시.
+    """
+    if not settings.dart_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="DART_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.",
+        )
+
+    client = DartDisclosureClient(api_key=settings.dart_api_key)
+    try:
+        corps = await client.search_corps(keyword=keyword)
+        return {
+            "status": "success",
+            "source": SOURCE_DART,
+            "data": corps,
+            "meta": {"count": len(corps)},
+        }
+    finally:
+        await client.close()
+
+
+@router.get(
     "/dart/disclosures",
     summary="OPEN DART 기업 공시 조회",
 )
 async def get_dart_disclosures(
-    corp_name: str = Query(..., description="회사명 (예: 삼성전자)"),
+    corp_name: str = Query("", description="회사명 (예: 삼성전자)"),
+    corp_code: str = Query("", description="DART 기업 고유번호 8자리 (있으면 corp_name보다 우선)"),
     bgn_de: str = Query("", description="시작일 YYYYMMDD"),
     end_de: str = Query("", description="종료일 YYYYMMDD"),
 ) -> dict:
     """OPEN DART에서 기업 공시 목록을 조회한다.
 
+    corp_code가 있으면 기업명 조회 단계를 건너뛰고 바로 공시를 조회한다.
+
     Args:
-        corp_name: 회사명.
+        corp_name: 회사명 (corp_code 없을 때 사용).
+        corp_code: DART 기업 고유번호 (있으면 corp_name보다 우선).
         bgn_de: 조회 시작일 YYYYMMDD.
         end_de: 조회 종료일 YYYYMMDD.
 
@@ -111,24 +154,29 @@ async def get_dart_disclosures(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="DART_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.",
         )
+    if not corp_name and not corp_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="corp_name 또는 corp_code 중 하나는 필수입니다.",
+        )
 
     client = DartDisclosureClient(api_key=settings.dart_api_key)
     try:
         disclosures = await client.fetch_disclosures(
-            corp_name=corp_name, bgn_de=bgn_de, end_de=end_de
+            corp_name=corp_name, corp_code=corp_code, bgn_de=bgn_de, end_de=end_de
         )
         return {
             "status": "success",
             "source": SOURCE_DART,
             "disclaimer": INVESTMENT_DISCLAIMER,
-            "query_params": {"corp_name": corp_name, "bgn_de": bgn_de, "end_de": end_de},
+            "query_params": {"corp_name": corp_name, "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de},
             "data": disclosures,
             "meta": {"count": len(disclosures)},
         }
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except Exception as exc:
-        logger.error("[DART API] 공시 조회 실패: corp_name=%s %s", corp_name, exc)
+        logger.error("[DART API] 공시 조회 실패: corp_name=%s corp_code=%s %s", corp_name, corp_code, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="DART API 호출에 실패했습니다. 잠시 후 다시 시도해주세요.",

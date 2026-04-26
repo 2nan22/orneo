@@ -96,3 +96,18 @@ class JournalScenariosView(APIView):
         return Response(
             {"status": "success", "data": DecisionScenarioInlineSerializer(scenario).data},
         )
+
+
+class JournalScenariosRegenerateView(APIView):
+    """의사결정 시나리오 강제 재생성."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, pk: int) -> Response:
+        """기존 시나리오를 삭제하고 새로 생성한다."""
+        entry = get_journal_for_user(journal_id=pk, user=request.user)
+        scenario = generate_scenarios_for_entry(entry=entry, force=True)
+        logger.info("시나리오 재생성: journal_id=%d user_id=%d", pk, request.user.pk)
+        return Response(
+            {"status": "success", "data": DecisionScenarioInlineSerializer(scenario).data},
+        )

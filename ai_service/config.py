@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
 
     ollama_base_url: str = "http://host.docker.internal:11434"
-    gemma_model: str = "gemma4:e2b"
+    gemma_model: str = "qwen2.5:7b"
 
     # 공공데이터포털 공통 인증키 (MOLIT + K-MOOC)
     data_go_kr_service_key: str = ""
@@ -52,6 +52,9 @@ class Settings(BaseSettings):
 
     # K-MOOC 강좌 엔드포인트
     kmooc_lecture_endpoint: str = "https://apis.data.go.kr/B552881/kmooc_v2_0"
+
+    # Tavily 웹 검색 (빈 값이면 검색 생략)
+    tavily_api_key: str = ""
 
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 

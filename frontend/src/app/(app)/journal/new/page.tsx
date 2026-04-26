@@ -7,6 +7,8 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Toast from "@/components/ui/Toast";
+import DartCorpSearchInput from "@/components/journal/DartCorpSearchInput";
+import type { Corp } from "@/components/journal/DartCorpSearchInput";
 import { api } from "@/lib/api";
 import type { Goal, JournalCategory } from "@/lib/types";
 
@@ -32,6 +34,7 @@ export default function NewJournalPage() {
   const [content, setContent] = useState("");
   const [moodScore, setMoodScore] = useState<number | null>(null);
   const [relatedGoal, setRelatedGoal] = useState<number | null>(null);
+  const [selectedCorp, setSelectedCorp] = useState<Corp | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -61,6 +64,8 @@ export default function NewJournalPage() {
         content: content.trim(),
         mood_score: moodScore,
         related_goal: relatedGoal,
+        dart_corp_code: selectedCorp?.corp_code ?? "",
+        dart_corp_name: selectedCorp?.corp_name ?? "",
       });
       setToast("AI가 요약을 생성 중입니다...");
       // 토스트 보여주고 이동
@@ -116,6 +121,16 @@ export default function NewJournalPage() {
               ))}
             </div>
           </div>
+
+          {/* 투자 카테고리 — 종목 선택 */}
+          {category === "investment" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[var(--color-text)]">
+                종목 <span className="text-[var(--color-text-sub)]">(선택)</span>
+              </label>
+              <DartCorpSearchInput value={selectedCorp} onChange={setSelectedCorp} />
+            </div>
+          )}
 
           {/* 제목 */}
           <Input

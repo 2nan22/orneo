@@ -14,6 +14,19 @@ interface GoalCardProps {
   goal: Goal;
 }
 
+const KMOOC_STOPWORDS = [
+  "과정", "수료", "달성", "준비", "목표", "계획", "공부", "학습", "완료", "하기",
+  "K-MOOC", "MOOC", "강좌", "온라인", "이수",
+];
+
+function extractKeyword(title: string): string {
+  const words = title.split(/[\s·,]+/);
+  const keywords = words.filter(
+    (w) => w.length >= 2 && !KMOOC_STOPWORDS.includes(w),
+  );
+  return keywords.slice(0, 2).join(" ") || title;
+}
+
 export default function GoalCard({ goal }: GoalCardProps) {
   const meta = CATEGORY_META[goal.category] ?? {
     label: goal.category,
@@ -71,7 +84,7 @@ export default function GoalCard({ goal }: GoalCardProps) {
       </div>
 
       {goal.category === "learning" && (
-        <CourseSuggestionCard keyword={goal.title} />
+        <CourseSuggestionCard keyword={extractKeyword(goal.title)} />
       )}
     </Card>
   );

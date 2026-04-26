@@ -55,6 +55,9 @@ class JournalEntry(models.Model):
         blank=True,
         related_name="journal_entries",
     )
+    # 투자 카테고리 전용 — 직접 선택한 종목 정보
+    dart_corp_code = models.CharField(max_length=8, blank=True, default="")
+    dart_corp_name = models.CharField(max_length=100, blank=True, default="")
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -9,6 +9,7 @@ from apps.journal.views import (
     JournalDetailView,
     JournalListCreateView,
     JournalReviewView,
+    JournalScenariosRegenerateView,
     JournalScenariosView,
 )
 
@@ -17,4 +18,5 @@ urlpatterns = [
     path("<int:pk>/", JournalDetailView.as_view(), name="journal-detail"),
     path("<int:pk>/review/", JournalReviewView.as_view(), name="journal-review"),
     path("<int:pk>/scenarios/", JournalScenariosView.as_view(), name="journal-scenarios"),
+    path("<int:pk>/scenarios/regenerate/", JournalScenariosRegenerateView.as_view(), name="journal-scenarios-regenerate"),
 ]

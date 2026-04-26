@@ -13,9 +13,11 @@ interface Disclosure {
 interface Props {
   title: string;
   category: string;
+  dart_corp_code?: string;
+  dart_corp_name?: string;
 }
 
-// 제목에서 종목명 추출 (2~8자 한글/영문 + 업종 접미어)
+// 제목에서 종목명 추출 — corp_code 없을 때 fallback으로 사용
 function extractCorpName(title: string): string {
   const match = title.match(
     /([가-힣A-Za-z]{2,8}(?:전자|증권|화학|에너지|바이오|건설|금융|통신|보험|카드|캐피탈|물산|제약|홀딩스|그룹|산업|자동차|항공|모빌리티)?)/,
@@ -23,20 +25,34 @@ function extractCorpName(title: string): string {
   return match?.[1] ?? "";
 }
 
-export default function DartDisclosureBadge({ title, category }: Props) {
+export default function DartDisclosureBadge({
+  title,
+  category,
+  dart_corp_code,
+  dart_corp_name,
+}: Props) {
   const [disclosure, setDisclosure] = useState<Disclosure | null>(null);
-  const corpName = extractCorpName(title);
 
   useEffect(() => {
-    if (category !== "investment" || !corpName) return;
-    fetch(`/api/public-data/dart?corp_name=${encodeURIComponent(corpName)}`)
+    if (category !== "investment") return;
+
+    let url: string;
+    if (dart_corp_code) {
+      url = `/api/public-data/dart?corp_code=${encodeURIComponent(dart_corp_code)}`;
+    } else {
+      const corpName = dart_corp_name || extractCorpName(title);
+      if (!corpName) return;
+      url = `/api/public-data/dart?corp_name=${encodeURIComponent(corpName)}`;
+    }
+
+    fetch(url)
       .then((r) => r.json())
       .then((json) => {
         const first = (json?.data ?? [])[0] ?? null;
         setDisclosure(first);
       })
       .catch(() => setDisclosure(null));
-  }, [corpName, category]);
+  }, [title, category, dart_corp_code, dart_corp_name]);
 
   if (!disclosure) return null;
 

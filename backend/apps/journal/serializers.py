@@ -16,6 +16,8 @@ class JournalCreateSerializer(serializers.Serializer):
     content = serializers.CharField()
     mood_score = serializers.IntegerField(min_value=1, max_value=5, required=False, allow_null=True)
     related_goal_id = serializers.IntegerField(required=False, allow_null=True)
+    dart_corp_code = serializers.CharField(max_length=8, required=False, allow_blank=True, default="")
+    dart_corp_name = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
 
 
 class JournalReviewSerializer(serializers.Serializer):
@@ -49,6 +51,8 @@ class JournalResponseSerializer(serializers.ModelSerializer):
             "category",
             "title",
             "content",
+            "dart_corp_code",
+            "dart_corp_name",
             "ai_summary",
             "action_items",
             "mood_score",

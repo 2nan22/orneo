@@ -288,17 +288,24 @@ class GemmaClient:
         self,
         topic: str,
         context: dict,
+        *,
+        tavily_api_key: str = "",
     ) -> ScenariosResult:
         """의사결정 주제에 대한 A/B/C 시나리오를 생성한다.
 
         Args:
             topic: 결정 주제 문자열.
             context: category, user_goals, recent_data 딕셔너리.
+            tavily_api_key: Tavily API 키. 빈 값이면 검색 생략.
 
         Returns:
             ScenariosResult 시나리오 목록·근거칩·모델명.
         """
-        prompt = self._build_scenarios_prompt(topic, context)
+        from services.search import search_recent_news
+        query = self._build_search_query(topic, context.get("category", ""))
+        search_snippets = await search_recent_news(query, api_key=tavily_api_key)
+
+        prompt = self._build_scenarios_prompt(topic, context, search_snippets)
         try:
             response = await self._client.post(
                 OLLAMA_GENERATE_URL,
@@ -322,18 +329,50 @@ class GemmaClient:
                 model_used="fallback",
             )
 
-    def _build_scenarios_prompt(self, topic: str, context: dict) -> str:
+    CATEGORY_SEARCH_SUFFIX: dict[str, str] = {
+        "investment": "주가 최근 뉴스 실적",
+        "housing": "부동산 시세 최근 뉴스",
+        "learning": "강좌 추천 커리어",
+        "routine": "루틴 생산성",
+        "general": "최신 트렌드",
+    }
+
+    def _build_search_query(self, topic: str, category: str) -> str:
+        """카테고리별 검색 접미어를 붙여 검색 쿼리를 반환한다.
+
+        Args:
+            topic: 결정 주제.
+            category: 일지 카테고리.
+
+        Returns:
+            완성된 검색 쿼리 문자열.
+        """
+        suffix = self.CATEGORY_SEARCH_SUFFIX.get(category, "")
+        return f"{topic} {suffix}".strip()
+
+    def _build_scenarios_prompt(
+        self,
+        topic: str,
+        context: dict,
+        search_snippets: list[str] | None = None,
+    ) -> str:
         """시나리오 생성 프롬프트를 구성한다.
 
         Args:
             topic: 결정 주제.
             context: 컨텍스트 딕셔너리.
+            search_snippets: Tavily 검색 결과 요약 목록.
 
         Returns:
             완성된 프롬프트 문자열.
         """
         goals_str = "\n".join(f"- {g}" for g in context.get("user_goals", [])) or "없음"
         data_str = "\n".join(f"- {d}" for d in context.get("recent_data", [])) or "없음"
+        snippets_str = (
+            "\n".join(f"- {s}" for s in search_snippets)
+            if search_snippets
+            else "검색 결과 없음"
+        )
         return f"""당신은 개인 재무·생활 코치입니다. 한국어로 답변하세요.
 
 [주제] {topic}
@@ -342,6 +381,8 @@ class GemmaClient:
 {goals_str}
 [참고 데이터]
 {data_str}
+[최신 참고 정보 (웹 검색)]
+{snippets_str}
 
 위 주제에 대해 A·B·C 세 가지 선택지를 작성하세요.
 각 선택지: 제목(10자 이내) / 리스크(높음·중간·낮음 중 하나) / 한 줄 설명(40자 이내)
