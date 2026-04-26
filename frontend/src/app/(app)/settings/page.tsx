@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [modelMode, setModelMode]           = useState("auto");
   const [notifyDailyAction, setNotifyDailyAction] = useState(false);
 
+  const [resetting, setResetting]                   = useState(false);
   const [riskTolerance, setRiskTolerance]           = useState("");
   const [selectedRegion, setSelectedRegion]         = useState<RegionOption | null>(null);
   const [learningInterests, setLearningInterests]   = useState<string[]>([]);
@@ -97,6 +98,25 @@ export default function SettingsPage() {
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
+  }
+
+  async function handleOnboardingReset() {
+    if (
+      !confirm(
+        "온보딩을 재설정하면 다시 처음부터 설정을 진행합니다.\n기존 목표·일지·리포트 데이터는 유지됩니다.\n계속하시겠습니까?",
+      )
+    )
+      return;
+
+    setResetting(true);
+    try {
+      await api.post("/auth/onboarding/reset", {});
+      router.push("/onboarding");
+    } catch {
+      setToast("온보딩 재설정에 실패했습니다.");
+    } finally {
+      setResetting(false);
+    }
   }
 
   function toggleInterest(tag: string) {
@@ -327,7 +347,8 @@ export default function SettingsPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.push("/onboarding")}
+          onClick={handleOnboardingReset}
+          loading={resetting}
         >
           온보딩 다시 시작
         </Button>
