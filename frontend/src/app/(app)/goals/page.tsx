@@ -69,6 +69,14 @@ export default function GoalsPage() {
   const [filter, setFilter] = useState<CategoryFilter>("all");
   const [showModal, setShowModal] = useState(false);
 
+  function handleGoalUpdated(updated: Goal) {
+    if (!updated.is_active) {
+      setGoals((prev) => prev.filter((g) => g.id !== updated.id));
+    } else {
+      setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+    }
+  }
+
   const fetchGoals = useCallback(async () => {
     setLoading(true);
     try {
@@ -131,7 +139,7 @@ export default function GoalsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {displayed.map((goal) => (
-            <GoalCard key={goal.id} goal={goal} />
+            <GoalCard key={goal.id} goal={goal} onProgressUpdate={handleGoalUpdated} />
           ))}
         </div>
       )}
