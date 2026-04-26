@@ -41,15 +41,25 @@ export default function CourseSuggestionCard({ keyword }: { keyword: string }) {
           {loading ? (
             <p className="text-xs text-[var(--color-text-sub)]">검색 중...</p>
           ) : courses.length === 0 ? (
-            <p className="text-xs text-[var(--color-text-sub)]">관련 강좌가 없습니다.</p>
+            <p className="text-xs text-[var(--color-text-sub)]">해당 강좌를 찾을 수 없습니다.</p>
           ) : (
-            courses.map((c, i) => (
-              <div key={i} className="rounded-lg bg-[var(--color-bg)] px-3 py-2">
-                <p className="text-xs font-medium text-[var(--color-text)]">
-                  {c.course_name}
-                </p>
+            courses.map((c) => (
+              <a
+                key={c.course_id}
+                href={`https://www.kmooc.kr/courses/${c.course_id}/about`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg border border-[var(--color-border)]
+                           px-3 py-2 hover:border-[var(--color-primary)] transition-colors"
+              >
+                <p className="text-xs font-medium text-[var(--color-text)]">{c.course_name}</p>
                 <p className="text-[10px] text-[var(--color-text-sub)]">{c.org_name}</p>
-              </div>
+                {c.short_description && (
+                  <p className="mt-0.5 line-clamp-2 text-[10px] text-[var(--color-text-sub)]">
+                    {c.short_description}
+                  </p>
+                )}
+              </a>
             ))
           )}
           <p className="text-[10px] text-[var(--color-text-sub)]">
