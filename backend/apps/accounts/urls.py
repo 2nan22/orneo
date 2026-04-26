@@ -6,7 +6,7 @@ from __future__ import annotations
 import environ
 from django.urls import path
 
-from apps.accounts.views import OnboardingView, ProfileView
+from apps.accounts.views import OnboardingResetView, OnboardingView, ProfileView
 
 env = environ.Env()
 
@@ -49,4 +49,5 @@ urlpatterns = [
     *social_urlpatterns,
     path("profile/", ProfileView.as_view(), name="profile"),
     path("onboarding/", OnboardingView.as_view(), name="onboarding"),
+    path("onboarding/reset/", OnboardingResetView.as_view(), name="onboarding-reset"),
 ]

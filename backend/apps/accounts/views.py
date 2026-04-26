@@ -65,3 +65,27 @@ class OnboardingView(APIView):
             {"status": "success", "data": UserProfileSerializer(user).data},
             status=status.HTTP_201_CREATED,
         )
+
+
+class OnboardingResetView(APIView):
+    """온보딩 재설정 — onboarded_at 초기화."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        """온보딩 완료 상태를 초기화하여 다시 온보딩을 진행할 수 있게 한다.
+
+        사용자 데이터(목표, 일지, 리포트)는 유지된다.
+        onboarded_at만 null로 리셋한다.
+
+        Returns:
+            업데이트된 사용자 프로필.
+        """
+        user = request.user
+        user.onboarded_at = None
+        user.save(update_fields=["onboarded_at", "updated_at"])
+
+        logger.info("온보딩 재설정: user_id=%d", user.pk)
+        return Response(
+            {"status": "success", "data": UserProfileSerializer(user).data},
+        )
