@@ -6,7 +6,6 @@ import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
-import MeasurementToggle from "@/components/ui/MeasurementToggle";
 import HeroScoreCard from "@/components/dashboard/HeroScoreCard";
 import GoalGrid from "@/components/dashboard/GoalGrid";
 import KeyQuestion from "@/components/dashboard/KeyQuestion";
@@ -15,7 +14,7 @@ import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 import ApartmentCard from "@/components/dashboard/ApartmentCard";
 import OrneoAiPanel from "@/components/dashboard/OrneoAiPanel";
 import { api } from "@/lib/api";
-import type { MeasureMode } from "@/components/ui/MeasurementToggle";
+import { useMeasureMode } from "@/lib/measureModeContext";
 import type { DashboardData, UserProfile } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -23,7 +22,7 @@ export default function DashboardPage() {
   const [profile, setProfile]     = useState<UserProfile | null>(null);
   const [loading, setLoading]     = useState(true);
   const [isError, setIsError]     = useState(false);
-  const [measureMode, setMeasureMode] = useState<MeasureMode>("level");
+  const { measureMode } = useMeasureMode();
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -88,11 +87,6 @@ export default function DashboardPage() {
         <h1 className="mt-2 text-3xl font-black tracking-[-0.07em] text-[#0B132B]">오늘의 대시보드</h1>
       </div>
 
-      {/* 측정 모드 토글 */}
-      <div className="mb-5">
-        <MeasurementToggle mode={measureMode} setMode={setMeasureMode} />
-      </div>
-
       {/*
         모바일: flex-col — HeroScoreCard → TodayActions → GoalGrid → KeyQuestion → OrneoAiPanel → 빠른 이동 → 실거래가
         데스크톱(sm+): 2컬럼 그리드
@@ -105,6 +99,8 @@ export default function DashboardPage() {
         <HeroScoreCard
           score={d.score}
           measureMode={measureMode}
+          summaryText={d.brief_summary || undefined}
+          deltaScore={d.delta?.score}
           className="sm:col-start-1 sm:row-start-1"
         />
 

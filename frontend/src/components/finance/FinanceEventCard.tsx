@@ -3,17 +3,9 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { formatMeasure } from "@/lib/level";
 import type { MeasureMode } from "@/components/ui/MeasurementToggle";
+import type { FinanceEvent } from "@/lib/types";
 
-type EventType = "주식" | "부동산" | "금리·환율" | "공시";
-
-interface FinanceEvent {
-  title:     string;
-  type:      EventType;
-  move:      string;
-  context:   string;
-  direction: string;
-  value:     number;
-}
+type EventType = FinanceEvent["type"];
 
 interface Props {
   event:       FinanceEvent;

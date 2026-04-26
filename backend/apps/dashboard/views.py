@@ -82,6 +82,22 @@ class DashboardView(APIView):
 
         delta = _get_delta(user=request.user, today=today)
 
+        brief_summary = ""
+        try:
+            from apps.reports.models import WeeklyReport
+            latest_report = (
+                WeeklyReport.objects.filter(user=request.user)
+                .order_by("-week_start")
+                .first()
+            )
+            if latest_report and latest_report.ai_summary:
+                brief_summary = (
+                    latest_report.ai_summary[:120]
+                    + ("..." if len(latest_report.ai_summary) > 120 else "")
+                )
+        except Exception:
+            pass
+
         return Response({
             "status": "success",
             "data": {
@@ -92,6 +108,7 @@ class DashboardView(APIView):
                 "delta": delta,
                 "today_actions": actions,
                 "key_question": key_question,
+                "brief_summary": brief_summary,
             },
         })
 

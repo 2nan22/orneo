@@ -19,6 +19,15 @@ class RiskTolerance(models.TextChoices):
     AGGRESSIVE = "aggressive", "공격형"
 
 
+class AIModelChoice(models.TextChoices):
+    """사용자가 선택 가능한 AI 모델."""
+
+    AUTO = "auto", "자동 선택"
+    GEMMA = "gemma", "Gemma 4 E2B"
+    QWEN = "qwen", "Qwen 2.5"
+    SERVER = "server", "서버 고성능"
+
+
 class CustomUser(AbstractUser):
     """ORNEO 사용자 모델.
 
@@ -33,6 +42,8 @@ class CustomUser(AbstractUser):
         preferred_region: 희망 지역 텍스트 (온보딩 입력).
         preferred_region_code: 법정동 코드 5자리 (MOLIT API 조회용).
         learning_interests: 학습 관심사 태그 목록.
+        preferred_ai_model: 사용자가 선택한 AI 모델 (Settings 화면).
+        notify_daily_action: 일일 행동 알림 수신 여부.
     """
 
     subscription_plan = models.CharField(
@@ -61,6 +72,16 @@ class CustomUser(AbstractUser):
         default=list,
         blank=True,
         help_text="학습 관심사 태그 목록 (예: ['IT', '금융'])",
+    )
+    preferred_ai_model = models.CharField(
+        max_length=20,
+        choices=AIModelChoice.choices,
+        default=AIModelChoice.AUTO,
+        help_text="사용자가 선택한 AI 모델 (Settings 화면)",
+    )
+    notify_daily_action = models.BooleanField(
+        default=False,
+        help_text="일일 행동 알림 수신 여부 (미구현 — UI 토글 설정값 저장용)",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

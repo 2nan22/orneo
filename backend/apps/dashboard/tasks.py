@@ -52,6 +52,8 @@ def generate_daily_actions_for_user(self, user_id: int) -> None:
         .values_list("ai_summary", flat=True)[:3]
     )
 
+    preferred_model = getattr(user, "preferred_ai_model", "auto")
+
     try:
         with httpx.Client(timeout=60.0) as client:
             response = client.post(
@@ -60,6 +62,7 @@ def generate_daily_actions_for_user(self, user_id: int) -> None:
                     "goals": goals,
                     "recent_journal_summaries": recent_summaries,
                     "risk_tolerance": user.risk_tolerance,
+                    "preferred_model": preferred_model,
                 },
                 headers={"X-Service-Secret": ai_service_secret},
             )
