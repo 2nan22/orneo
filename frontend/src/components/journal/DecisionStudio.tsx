@@ -22,6 +22,8 @@ interface Props {
   scenarios: Scenario[];
   disclaimer: string;
   isLoading?: boolean;
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
 }
 
 export default function DecisionStudio({
@@ -30,6 +32,8 @@ export default function DecisionStudio({
   scenarios,
   disclaimer,
   isLoading,
+  onRegenerate,
+  isRegenerating,
 }: Props) {
   if (isLoading) {
     return (
@@ -47,10 +51,41 @@ export default function DecisionStudio({
 
   return (
     <Card padding="md">
-      {/* eyebrow */}
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-point)]">
-        Decision Studio
-      </p>
+      {/* eyebrow + 재생성 버튼 */}
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-point)]">
+          Decision Studio
+        </p>
+        {onRegenerate && (
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium
+                       text-[var(--color-text-sub)] hover:bg-[var(--color-bg)] hover:text-[var(--color-primary)]
+                       disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+            title="시나리오 재생성"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={isRegenerating ? "animate-spin" : ""}
+            >
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0114.85-3.36L23 10" />
+              <path d="M20.49 15a9 9 0 01-14.85 3.36L1 14" />
+            </svg>
+            {isRegenerating ? "재생성 중..." : "재생성"}
+          </button>
+        )}
+      </div>
 
       {/* 주제 */}
       <p className="mb-3 text-sm font-bold text-[var(--color-text)]">{topic}</p>

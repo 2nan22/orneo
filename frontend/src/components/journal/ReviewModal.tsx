@@ -25,7 +25,8 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
   const [scenario, setScenario] = useState<DecisionScenarioData | null | undefined>(
     entry.decision_scenario,
   );
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating]     = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // ESC 키 닫기
@@ -59,6 +60,22 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
       }
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleRegenerateScenario() {
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/v1/journals/${entry.id}/scenarios/regenerate/`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (res.ok && json.status === "success") {
+        setScenario(json.data);
+      }
+    } finally {
+      setRegenerating(false);
     }
   }
 
@@ -121,6 +138,8 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
                 evidenceChips={scenario.evidence_chips}
                 scenarios={scenario.scenarios}
                 disclaimer={scenario.disclaimer}
+                onRegenerate={handleRegenerateScenario}
+                isRegenerating={regenerating}
               />
             ) : (
               <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-5 text-center">

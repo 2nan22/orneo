@@ -52,6 +52,8 @@ export type JournalEntry = {
   category: JournalCategory;
   title: string;
   content: string;
+  dart_corp_code: string;
+  dart_corp_name: string;
   ai_summary: string | null;
   mood_score: number | null;
   is_reviewed: boolean;
