@@ -47,6 +47,17 @@ export type DecisionScenarioData = {
   disclaimer: string;
 };
 
+/** Studio 화면에서 사용하는 경량 일지 타입 */
+export type StudioJournal = {
+  id: number;
+  category: "investment" | "housing";
+  title: string;
+  dart_corp_name: string;
+  ai_summary: string | null;
+  created_at: string;
+  decision_scenario: DecisionScenarioData | null;
+};
+
 export type JournalEntry = {
   id: number;
   category: JournalCategory;
