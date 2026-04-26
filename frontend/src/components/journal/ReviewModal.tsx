@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Button from "@/components/ui/Button";
 import DecisionStudio from "./DecisionStudio";
 import type { DecisionScenarioData, JournalEntry } from "@/lib/types";
@@ -28,6 +29,8 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
   const [generating, setGenerating]     = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef  = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
 
   // ESC 키 닫기
   useEffect(() => {
@@ -87,10 +90,16 @@ export default function ReviewModal({ entry, onClose, onSave }: Props) {
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="w-full max-w-lg rounded-2xl bg-[var(--color-card)] shadow-xl">
+      <div
+        ref={dialogRef}
+        className="w-full max-w-lg rounded-2xl bg-[var(--color-card)] shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="review-modal-title"
+      >
         {/* 헤더 */}
         <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <h2 className="font-semibold text-[var(--color-text)]">복기 작성</h2>
+          <h2 id="review-modal-title" className="font-semibold text-[var(--color-text)]">복기 작성</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1 text-[var(--color-text-sub)] hover:bg-[var(--color-bg)]"
