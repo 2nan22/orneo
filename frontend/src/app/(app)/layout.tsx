@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import BrandMark from "@/components/ui/BrandMark";
 import { MeasureModeProvider } from "@/lib/measureModeContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 
 // ─── 인라인 SVG 아이콘 ───────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <MeasureModeProvider>
+    <ToastProvider>
     <div className="flex min-h-screen flex-col">
       {/* 모바일 TopBar — glassmorphism + BrandMark + 알림 벨 */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/88 px-4 py-3 backdrop-blur-xl sm:hidden">
@@ -176,6 +178,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
     </div>
+    </ToastProvider>
     </MeasureModeProvider>
   );
 }
