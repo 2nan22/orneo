@@ -60,7 +60,7 @@ export default function JournalCard({ entry, onReview }: Props) {
 
       {/* DART 공시 배지 — investment 카테고리만 */}
       {entry.category === "investment" && (
-        <DartDisclosureBadge title={entry.title} />
+        <DartDisclosureBadge title={entry.title} category={entry.category} />
       )}
 
       {/* AI 요약 */}
