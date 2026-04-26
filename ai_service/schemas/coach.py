@@ -39,6 +39,10 @@ class DailyActionsRequest(BaseModel):
         description="최근 3일 일지 요약 (ai_summary 필드)",
     )
     risk_tolerance: str = Field(default="moderate", description="투자 성향")
+    preferred_model: str = Field(
+        default="auto",
+        description="사용자 선호 모델 (auto/gemma/qwen/server)",
+    )
 
 
 class ActionItem(BaseModel):

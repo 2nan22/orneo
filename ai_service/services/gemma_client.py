@@ -181,6 +181,7 @@ class GemmaClient:
         goals: list[dict],
         recent_summaries: list[str],
         risk_tolerance: str,
+        preferred_model: str = "auto",
     ) -> DailyActionsResult:
         """목표와 최근 일지를 바탕으로 오늘 할 행동 3개와 핵심 질문을 생성한다.
 
@@ -188,10 +189,16 @@ class GemmaClient:
             goals: 활성 목표 목록 (category, title, progress).
             recent_summaries: 최근 3일 일지 요약 목록.
             risk_tolerance: 사용자 투자 성향.
+            preferred_model: 사용자 선호 AI 모델 힌트 (auto/gemma/qwen/server).
 
         Returns:
             DailyActionsResult 행동·질문·모델명.
         """
+        if preferred_model not in ("auto", "gemma"):
+            logger.info(
+                "요청 모델(%s) 미지원 — Gemma 기본 모델 사용 (향후 지원 예정)",
+                preferred_model,
+            )
         prompt = self._build_daily_actions_prompt(goals, recent_summaries, risk_tolerance)
         try:
             response = await self._client.post(
