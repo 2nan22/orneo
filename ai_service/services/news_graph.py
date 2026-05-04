@@ -60,6 +60,7 @@ class AgentState(TypedDict):
     sectors: list[str]
     watchlist_companies: list[str]
     sector_articles: dict[str, list[str]]
+    sector_articles_meta: dict[str, list[dict]]
     sector_article_counts: dict[str, int]
     sector_analyses: dict[str, str]
     overall_analysis: str
@@ -82,6 +83,7 @@ async def multi_search_node(state: AgentState) -> dict:
     """섹터별 Tavily 검색."""
     market = state["market"]
     sector_articles: dict[str, list[str]] = {}
+    sector_articles_meta: dict[str, list[dict]] = {}
 
     for sector in state["sectors"]:
         kw = (US_SECTOR_KEYWORDS if market == "US" else KR_SECTOR_KEYWORDS).get(sector, sector)
@@ -95,17 +97,24 @@ async def multi_search_node(state: AgentState) -> dict:
             resp = await asyncio.to_thread(
                 client.search, query=query, max_results=5, search_depth="basic"
             )
+            results = resp.get("results", [])
             sector_articles[sector] = [
                 f"[{r.get('title','')}]\n{r.get('content','')[:400]}\n출처: {r.get('url','')}"
-                for r in resp.get("results", [])
+                for r in results
+            ]
+            sector_articles_meta[sector] = [
+                {"title": r.get("title", ""), "url": r.get("url", "")}
+                for r in results
             ]
         except Exception as exc:
             logger.error("섹터 '%s' 검색 실패: %s", sector, exc)
             sector_articles[sector] = []
+            sector_articles_meta[sector] = []
 
     total = sum(len(v) for v in sector_articles.values())
     return {
         "sector_articles": sector_articles,
+        "sector_articles_meta": sector_articles_meta,
         "error_count": state["error_count"] + (0 if total > 0 else 1),
     }
 
@@ -167,6 +176,7 @@ async def aggregate_node(state: AgentState) -> dict:
     return {
         "overall_analysis": overall,
         "sector_article_counts": sector_article_counts,
+        "sector_articles_meta": state.get("sector_articles_meta", {}),
     }
 
 

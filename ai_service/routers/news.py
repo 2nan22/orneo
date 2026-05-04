@@ -22,6 +22,7 @@ class NewsAnalyzeResponse(BaseModel):
     overall_analysis: str
     sector_analyses: dict[str, str]
     sector_article_counts: dict[str, int]
+    sector_articles_meta: dict[str, list[dict]] = {}
     run_duration_ms: int
 
 
@@ -38,6 +39,7 @@ async def analyze_news(req: NewsAnalyzeRequest) -> NewsAnalyzeResponse:
             "sectors": req.sectors,
             "watchlist_companies": req.watchlist_companies,
             "sector_articles": {},
+            "sector_articles_meta": {},
             "sector_article_counts": {},
             "sector_analyses": {},
             "overall_analysis": "",
@@ -53,5 +55,6 @@ async def analyze_news(req: NewsAnalyzeRequest) -> NewsAnalyzeResponse:
         overall_analysis=result["overall_analysis"],
         sector_analyses=result["sector_analyses"],
         sector_article_counts=result.get("sector_article_counts", {}),
+        sector_articles_meta=result.get("sector_articles_meta", {}),
         run_duration_ms=elapsed_ms,
     )

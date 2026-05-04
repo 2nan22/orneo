@@ -64,7 +64,11 @@ def run_daily_news_analysis(
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     analysis_obj.run_status = "COMPLETED"
     analysis_obj.overall_analysis = data["overall_analysis"]
-    analysis_obj.raw_result = data["sector_analyses"]
+    analysis_obj.raw_result = {
+        "sector_analyses": data["sector_analyses"],
+        "sector_article_counts": data.get("sector_article_counts", {}),
+        "sector_articles_meta": data.get("sector_articles_meta", {}),
+    }
     analysis_obj.run_duration_ms = elapsed_ms
     analysis_obj.save()
 
