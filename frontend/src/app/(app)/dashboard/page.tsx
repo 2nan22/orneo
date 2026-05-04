@@ -12,6 +12,7 @@ import KeyQuestion from "@/components/dashboard/KeyQuestion";
 import TodayActions from "@/components/dashboard/TodayActions";
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 import ApartmentCard from "@/components/dashboard/ApartmentCard";
+import NewsBriefingCard from "@/components/dashboard/NewsBriefingCard";
 import OrneoAiPanel from "@/components/dashboard/OrneoAiPanel";
 import { api } from "@/lib/api";
 import { useMeasureMode } from "@/lib/measureModeContext";
@@ -146,7 +147,10 @@ export default function DashboardPage() {
           <OrneoAiPanel />
         </div>
 
-        {/* 6. 빠른 이동 — 모바일 6번째 / 데스크톱 col 1 row 3 */}
+        {/* 6. 오늘의 시장 브리핑 — 전폭 */}
+        <NewsBriefingCard className="sm:col-span-2" />
+
+        {/* 7. 빠른 이동 — 모바일 6번째 / 데스크톱 col 1 row 3 */}
         <Card variant="outlined" className="sm:col-start-1 sm:row-start-3">
           <p className="text-sm font-semibold text-[var(--color-text-sub)]">빠른 이동</p>
           <div className="mt-3 flex gap-2">

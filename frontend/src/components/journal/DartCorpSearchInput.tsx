@@ -18,6 +18,7 @@ export default function DartCorpSearchInput({ value, onChange }: Props) {
   const [results, setResults] = useState<Corp[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 외부 클릭 시 드롭다운 닫기
@@ -43,15 +44,24 @@ export default function DartCorpSearchInput({ value, onChange }: Props) {
 
     const timer = setTimeout(async () => {
       setLoading(true);
+      setErrorMessage(null);
       try {
         const res = await fetch(
           `/api/public-data/dart/corps?keyword=${encodeURIComponent(query)}`,
         );
         const json = await res.json();
-        setResults(json?.data ?? []);
-        setOpen(true);
-      } catch {
+        if (!res.ok || json?.status === "error") {
+          setResults([]);
+          setErrorMessage(json?.message ?? `검색 실패 (${res.status})`);
+          setOpen(true);
+        } else {
+          setResults(json?.data ?? []);
+          setOpen(true);
+        }
+      } catch (err) {
         setResults([]);
+        setErrorMessage(err instanceof Error ? err.message : "검색 요청 실패");
+        setOpen(true);
       } finally {
         setLoading(false);
       }
@@ -130,12 +140,15 @@ export default function DartCorpSearchInput({ value, onChange }: Props) {
         </ul>
       )}
 
-      {/* 로딩 / 결과 없음 */}
-      {open && !loading && results.length === 0 && query.length >= 2 && !value && (
-        <p className="mt-1 text-xs text-[var(--color-text-sub)]">검색 결과가 없습니다.</p>
-      )}
+      {/* 로딩 / 에러 / 결과 없음 */}
       {loading && (
         <p className="mt-1 text-xs text-[var(--color-text-sub)]">검색 중...</p>
+      )}
+      {open && !loading && errorMessage && (
+        <p className="mt-1 text-xs text-[var(--color-danger)]">{errorMessage}</p>
+      )}
+      {open && !loading && !errorMessage && results.length === 0 && query.length >= 2 && !value && (
+        <p className="mt-1 text-xs text-[var(--color-text-sub)]">검색 결과가 없습니다.</p>
       )}
     </div>
   );
