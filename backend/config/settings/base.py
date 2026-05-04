@@ -51,6 +51,7 @@ LOCAL_APPS: list[str] = [
     "apps.dashboard",
     "apps.reports",
     "apps.public_data",
+    "apps.news",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -202,6 +203,11 @@ CELERY_BEAT_SCHEDULE = {
     "sync-kmooc-courses-daily": {
         "task": "apps.public_data.tasks.sync_kmooc_courses",
         "schedule": crontab(hour=3, minute=0),  # 새벽 3시 1회
+    },
+    "run-daily-news-analysis-8am-kst": {
+        "task": "apps.news.tasks.run_daily_news_analysis",
+        "schedule": crontab(hour=23, minute=0),  # UTC 23:00 = KST 08:00
+        "kwargs": {"market": "KR", "engine": "langgraph"},
     },
 }
 
