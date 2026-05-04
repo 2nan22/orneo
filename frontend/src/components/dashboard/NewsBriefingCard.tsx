@@ -9,6 +9,21 @@ import type { NewsAnalysis } from "@/lib/types";
 
 const PREVIEW_CHARS = 220;
 
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max).trimEnd() + "…";
@@ -93,7 +108,10 @@ export default function NewsBriefingCard({ className = "" }: { className?: strin
         </header>
 
         <p className="text-xs leading-relaxed text-[var(--color-text-sub)]">
-          {truncate(analysis.overall_analysis || "(분석 본문이 비어 있습니다)", PREVIEW_CHARS)}
+          {truncate(
+            stripMarkdown(analysis.overall_analysis) || "(분석 본문이 비어 있습니다)",
+            PREVIEW_CHARS,
+          )}
         </p>
 
         {analysis.sector_analyses.length > 0 && (

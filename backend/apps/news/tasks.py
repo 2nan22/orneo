@@ -64,7 +64,11 @@ def run_daily_news_analysis(
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     analysis_obj.run_status = "COMPLETED"
     analysis_obj.overall_analysis = data["overall_analysis"]
-    analysis_obj.raw_result = data["sector_analyses"]
+    analysis_obj.raw_result = {
+        "sector_analyses": data["sector_analyses"],
+        "sector_article_counts": data.get("sector_article_counts", {}),
+        "sector_articles_meta": data.get("sector_articles_meta", {}),
+    }
     analysis_obj.run_duration_ms = elapsed_ms
     analysis_obj.save()
 
@@ -72,13 +76,17 @@ def run_daily_news_analysis(
         s.sector_name_ko: s
         for s in MarketSector.objects.filter(sector_name_ko__in=sectors)
     }
+    counts = data.get("sector_article_counts", {})
     for sector_name, analysis_text in data["sector_analyses"].items():
         sector_obj = sector_map.get(sector_name)
         if sector_obj:
             NewsSectorAnalysis.objects.update_or_create(
                 analysis=analysis_obj,
                 sector=sector_obj,
-                defaults={"analysis_text": analysis_text},
+                defaults={
+                    "analysis_text": analysis_text,
+                    "article_count": counts.get(sector_name, 0),
+                },
             )
 
     logger.info("뉴스 분석 완료: %s %s (%d ms)", target_date, market, elapsed_ms)

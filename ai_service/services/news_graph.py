@@ -4,7 +4,7 @@ import logging
 import os
 from typing import TypedDict
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from tavily import TavilyClient
@@ -12,6 +12,30 @@ from tavily import TavilyClient
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+SECTOR_ANALYZE_SYSTEM = """\
+너는 한국·미국 시장의 섹터 애널리스트다. 사용자가 제공한 뉴스 기사 모음을 읽고
+다음 규칙을 엄격히 지켜 보고서를 한국어로 작성한다.
+
+규칙:
+1. 출력은 정확히 세 섹션으로 구성한다. 헤더는 `## Summary`, `## Key Signals`,
+   `## Risk Factors`. 다른 헤더·이모지·머리말·맺음말을 절대 추가하지 않는다.
+2. 각 섹션은 2~4문장의 짧은 단락 1개 또는 3~5개의 불릿 리스트(`- `)로 한정한다.
+3. 수치·종목명·날짜는 기사 본문에 등장한 것만 인용한다. 추측·미확인 사실 금지.
+4. 마지막 줄은 빈 줄 없이 끝낸다. 코드 펜스를 사용하지 않는다.
+5. 기사가 0건이면 세 섹션 모두 "수집된 기사가 없어 분석을 생성할 수 없습니다." 한 줄로 채운다.
+"""
+
+AGGREGATE_SYSTEM = """\
+너는 시장 종합 분석가다. 사용자가 제공한 섹터별 분석 보고서를 읽고
+다음 규칙을 엄격히 지켜 종합 요약을 한국어로 작성한다.
+
+규칙:
+1. 출력은 4~6문장의 단락 1개로만 구성한다. 헤더·불릿·이모지·코드펜스를 추가하지 않는다.
+2. 섹터 간의 공통 흐름과 가장 두드러진 차이를 함께 짚는다.
+3. 수치·종목명은 입력 보고서에 등장한 것만 인용한다. 추측·미확인 사실 금지.
+4. 마지막 줄은 빈 줄 없이 끝낸다.
+"""
 
 KR_SECTOR_KEYWORDS: dict[str, str] = {
     "반도체": "반도체 DRAM 낸드 삼성전자 SK하이닉스",
@@ -36,6 +60,8 @@ class AgentState(TypedDict):
     sectors: list[str]
     watchlist_companies: list[str]
     sector_articles: dict[str, list[str]]
+    sector_articles_meta: dict[str, list[dict]]
+    sector_article_counts: dict[str, int]
     sector_analyses: dict[str, str]
     overall_analysis: str
     error_count: int
@@ -57,6 +83,7 @@ async def multi_search_node(state: AgentState) -> dict:
     """섹터별 Tavily 검색."""
     market = state["market"]
     sector_articles: dict[str, list[str]] = {}
+    sector_articles_meta: dict[str, list[dict]] = {}
 
     for sector in state["sectors"]:
         kw = (US_SECTOR_KEYWORDS if market == "US" else KR_SECTOR_KEYWORDS).get(sector, sector)
@@ -70,17 +97,24 @@ async def multi_search_node(state: AgentState) -> dict:
             resp = await asyncio.to_thread(
                 client.search, query=query, max_results=5, search_depth="basic"
             )
+            results = resp.get("results", [])
             sector_articles[sector] = [
                 f"[{r.get('title','')}]\n{r.get('content','')[:400]}\n출처: {r.get('url','')}"
-                for r in resp.get("results", [])
+                for r in results
+            ]
+            sector_articles_meta[sector] = [
+                {"title": r.get("title", ""), "url": r.get("url", "")}
+                for r in results
             ]
         except Exception as exc:
             logger.error("섹터 '%s' 검색 실패: %s", sector, exc)
             sector_articles[sector] = []
+            sector_articles_meta[sector] = []
 
     total = sum(len(v) for v in sector_articles.values())
     return {
         "sector_articles": sector_articles,
+        "sector_articles_meta": sector_articles_meta,
         "error_count": state["error_count"] + (0 if total > 0 else 1),
     }
 
@@ -91,20 +125,25 @@ async def sector_analyze_node(state: AgentState) -> dict:
     sector_analyses: dict[str, str] = {}
     for sector, articles in state["sector_articles"].items():
         text = "\n\n---\n\n".join(articles) if articles else "검색 결과 없음."
-        prompt = (
-            f"[{sector}] 섹터 {state['target_date']} 금융 분석 보고서:\n"
-            f"## Summary / ## Key Signals / ## Risk Factors 세 섹션을 포함하라.\n"
-            f"[기사]\n{text}"
+        user_prompt = (
+            f"대상: [{sector}] 섹터 / {state['target_date']} / 시장 {state['market']}\n\n"
+            f"[기사 모음]\n{text}"
         )
         try:
-            resp = await llm.ainvoke([HumanMessage(content=prompt)])
+            resp = await llm.ainvoke([
+                SystemMessage(content=SECTOR_ANALYZE_SYSTEM),
+                HumanMessage(content=user_prompt),
+            ])
             sector_analyses[sector] = resp.content
         except Exception as exc:
             logger.warning("섹터 '%s' LLM 분석 실패, fallback 반환: %s", sector, exc)
             sector_analyses[sector] = (
-                f"## Summary\n{sector} 섹터 분석을 생성하지 못했습니다.\n"
-                f"## Key Signals\n수집된 기사 {len(articles)}건.\n"
-                f"## Risk Factors\nLLM 호출 오류: {exc}"
+                "## Summary\n"
+                f"{sector} 섹터 분석을 생성하지 못했습니다.\n"
+                "## Key Signals\n"
+                f"수집된 기사 {len(articles)}건. LLM 호출 오류로 인해 신호를 추출하지 못했습니다.\n"
+                "## Risk Factors\n"
+                "분석 결과 신뢰성이 낮으므로 직접 출처 기사를 확인하시기 바랍니다."
             )
     return {"sector_analyses": sector_analyses}
 
@@ -113,16 +152,32 @@ async def aggregate_node(state: AgentState) -> dict:
     """전체 요약 생성."""
     llm = _make_llm()
     summaries = "\n\n".join(
-        f"### {s}\n{a[:500]}" for s, a in state["sector_analyses"].items()
+        f"### {s}\n{a[:800]}" for s, a in state["sector_analyses"].items()
     )
-    prompt = f"{state['target_date']} {state['market']} 멀티-섹터 종합 요약 (3-5문장):\n{summaries}"
+    user_prompt = (
+        f"대상: {state['target_date']} {state['market']} 시장 멀티-섹터 종합 요약\n\n"
+        f"[섹터별 분석 보고서]\n{summaries}"
+    )
     try:
-        resp = await llm.ainvoke([HumanMessage(content=prompt)])
+        resp = await llm.ainvoke([
+            SystemMessage(content=AGGREGATE_SYSTEM),
+            HumanMessage(content=user_prompt),
+        ])
         overall = resp.content
     except Exception as exc:
         logger.warning("종합 요약 LLM 실패, fallback 반환: %s", exc)
-        overall = f"{state['target_date']} {state['market']} 시장 뉴스가 수집되었습니다. LLM 분석 오류로 자동 요약이 생성되지 않았습니다."
-    return {"overall_analysis": overall}
+        overall = (
+            f"{state['target_date']} {state['market']} 시장 뉴스가 수집되었습니다. "
+            "LLM 분석 오류로 자동 요약이 생성되지 않았습니다."
+        )
+    sector_article_counts = {
+        s: len(arts) for s, arts in state["sector_articles"].items()
+    }
+    return {
+        "overall_analysis": overall,
+        "sector_article_counts": sector_article_counts,
+        "sector_articles_meta": state.get("sector_articles_meta", {}),
+    }
 
 
 def _route(state: AgentState) -> str:
