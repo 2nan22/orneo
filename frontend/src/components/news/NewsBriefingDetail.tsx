@@ -3,6 +3,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
@@ -28,42 +30,98 @@ function shiftDate(yyyymmdd: string, days: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
-/**
- * `## 헤더` 단위로 텍스트를 분할해 카드 본문을 그린다.
- * (LangGraph 출력은 `## Summary / ## Key Signals / ## Risk Factors` 3섹션)
- */
-function MarkdownSections({ text }: { text: string }) {
+const MARKDOWN_COMPONENTS: Components = {
+  h1: ({ children, ...props }) => (
+    <h4
+      className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]"
+      {...props}
+    >
+      {children}
+    </h4>
+  ),
+  h2: ({ children, ...props }) => (
+    <h4
+      className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-[var(--color-primary)] first:mt-0"
+      {...props}
+    >
+      {children}
+    </h4>
+  ),
+  h3: ({ children, ...props }) => (
+    <h5
+      className="mb-1 mt-3 text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-sub)]"
+      {...props}
+    >
+      {children}
+    </h5>
+  ),
+  ul: ({ children, ...props }) => (
+    <ul className="mb-2 list-disc space-y-1 pl-5 text-sm leading-relaxed" {...props}>
+      {children}
+    </ul>
+  ),
+  ol: ({ children, ...props }) => (
+    <ol className="mb-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed" {...props}>
+      {children}
+    </ol>
+  ),
+  li: ({ children, ...props }) => (
+    <li className="text-[var(--color-text)]" {...props}>
+      {children}
+    </li>
+  ),
+  p: ({ children, ...props }) => (
+    <p className="mb-2 text-sm leading-relaxed text-[var(--color-text)] last:mb-0" {...props}>
+      {children}
+    </p>
+  ),
+  strong: ({ children, ...props }) => (
+    <strong className="font-semibold text-[var(--color-text)]" {...props}>
+      {children}
+    </strong>
+  ),
+  em: ({ children, ...props }) => (
+    <em className="text-[var(--color-text)]" {...props}>
+      {children}
+    </em>
+  ),
+  blockquote: ({ children, ...props }) => (
+    <blockquote
+      className="my-2 border-l-2 border-[var(--color-primary)] pl-3 text-sm italic text-[var(--color-text-sub)]"
+      {...props}
+    >
+      {children}
+    </blockquote>
+  ),
+  a: ({ children, ...props }) => (
+    <a
+      className="text-[var(--color-primary)] underline hover:no-underline"
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+  code: ({ children, ...props }) => (
+    <code
+      className="rounded bg-[var(--color-bg)] px-1 py-0.5 text-[12px] text-[var(--color-text)]"
+      {...props}
+    >
+      {children}
+    </code>
+  ),
+};
+
+function SectorMarkdown({ text }: { text: string }) {
   if (!text.trim()) {
     return <p className="text-xs text-[var(--color-text-sub)]">분석 본문이 비어 있습니다.</p>;
   }
-  const sections: Array<{ heading: string | null; body: string }> = [];
-  const parts = text.split(/^##\s+/m);
-  if (parts[0].trim()) sections.push({ heading: null, body: parts[0].trim() });
-  for (const part of parts.slice(1)) {
-    const lineBreak = part.indexOf("\n");
-    if (lineBreak === -1) {
-      sections.push({ heading: part.trim(), body: "" });
-    } else {
-      sections.push({
-        heading: part.slice(0, lineBreak).trim(),
-        body: part.slice(lineBreak + 1).trim(),
-      });
-    }
-  }
   return (
-    <div className="flex flex-col gap-3">
-      {sections.map((s, i) => (
-        <div key={i}>
-          {s.heading && (
-            <h4 className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">
-              {s.heading}
-            </h4>
-          )}
-          <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--color-text)]">
-            {s.body}
-          </p>
-        </div>
-      ))}
+    <div className="flex flex-col">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+        {text}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -223,9 +281,11 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
           {/* 종합 요약 */}
           <Card padding="md">
             <h2 className="mb-2 text-sm font-bold text-[var(--color-text)]">종합 요약</h2>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--color-text)]">
-              {analysis.overall_analysis || "(요약이 비어 있습니다)"}
-            </p>
+            {analysis.overall_analysis ? (
+              <SectorMarkdown text={analysis.overall_analysis} />
+            ) : (
+              <p className="text-sm text-[var(--color-text-sub)]">(요약이 비어 있습니다)</p>
+            )}
             {analysis.run_duration_ms !== null && (
               <p className="mt-3 text-[10px] text-[var(--color-text-sub)]">
                 생성 소요: {(analysis.run_duration_ms / 1000).toFixed(1)}s · 엔진: {analysis.engine_type}
@@ -278,7 +338,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                     </p>
                   );
                 }
-                return <MarkdownSections text={active.analysis_text} />;
+                return <SectorMarkdown text={active.analysis_text} />;
               })()}
             </Card>
           )}
