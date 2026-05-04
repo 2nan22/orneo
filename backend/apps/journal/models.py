@@ -94,7 +94,7 @@ class DecisionScenario(models.Model):
     topic = models.CharField(max_length=200)
     evidence_chips = models.JSONField(default=list)
     scenarios = models.JSONField(default=list)
-    model_used = models.CharField(max_length=50, default="gemma4:e2b")
+    model_used = models.CharField(max_length=50, default="gemma4:latest")
     generated_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
