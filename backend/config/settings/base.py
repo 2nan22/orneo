@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env(
     DJANGO_DEBUG=(bool, False),
-    DJANGO_ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
+    DJANGO_ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1", "backend"]),
 )
 environ.Env.read_env(BASE_DIR.parent / ".env")
 
