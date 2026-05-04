@@ -204,6 +204,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.public_data.tasks.sync_kmooc_courses",
         "schedule": crontab(hour=3, minute=0),  # 새벽 3시 1회
     },
+    "run-daily-news-analysis-8am-kst": {
+        "task": "apps.news.tasks.run_daily_news_analysis",
+        "schedule": crontab(hour=23, minute=0),  # UTC 23:00 = KST 08:00
+        "kwargs": {"market": "KR", "engine": "langgraph"},
+    },
 }
 
 DATA_GO_KR_SERVICE_KEY = env("DATA_GO_KR_SERVICE_KEY", default="")
