@@ -39,6 +39,20 @@ async function handler(
     );
   }
 
+  // SSE 스트림은 ReadableStream 그대로 통과시킨다.
+  const contentType = djangoRes.headers.get("content-type") ?? "";
+  if (contentType.startsWith("text/event-stream")) {
+    return new Response(djangoRes.body, {
+      status: djangoRes.status,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  }
+
   const data = await djangoRes.json().catch(() => ({}));
   return NextResponse.json(data, { status: djangoRes.status });
 }

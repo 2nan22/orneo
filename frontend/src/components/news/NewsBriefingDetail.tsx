@@ -1,24 +1,43 @@
 // frontend/src/components/news/NewsBriefingDetail.tsx
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
+import StreamingSectorCard, {
+  type StreamStatus,
+} from "@/components/news/StreamingSectorCard";
 import { api } from "@/lib/api";
+import { readSSE } from "@/lib/sse";
 import { useToast } from "@/contexts/ToastContext";
-import type { NewsAnalysis, NewsTaskStatus } from "@/lib/types";
+import type { NewsAnalysis } from "@/lib/types";
+
+type SectorStream = {
+  text: string;
+  status: StreamStatus;
+  articleCount?: number;
+  elapsedMs?: number;
+};
+
+type GraphStartEv = { sectors?: string[]; target_date?: string; market?: string };
+type NodeEv = {
+  node?: string;
+  sector?: string;
+  full_text?: string;
+  sector_analyses?: Record<string, string>;
+  sector_article_counts?: Record<string, number>;
+};
+type TokenEv = { scope?: "sector" | "aggregate"; sector?: string; text?: string };
+type ErrorEv = { message?: string };
 
 interface Props {
   /** 특정 날짜를 강제할 경우 (없으면 latest) */
   initialDate?: string;
 }
-
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLLS = 60; // 약 3분
 
 function shiftDate(yyyymmdd: string, days: number): string {
   const [y, m, d] = yyyymmdd.split("-").map((s) => parseInt(s, 10));
@@ -133,9 +152,15 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeSectorId, setActiveSectorId] = useState<number | null>(null);
-  const [taskId, setTaskId] = useState<string | null>(null);
-  const [polling, setPolling] = useState(false);
-  const pollCountRef = useRef(0);
+
+  // 실시간 스트리밍 상태
+  const [streamingActive, setStreamingActive] = useState(false);
+  const [streamSectors, setStreamSectors] = useState<Record<string, SectorStream>>({});
+  const [streamOverall, setStreamOverall] = useState<{ text: string; status: StreamStatus }>({
+    text: "",
+    status: "pending",
+  });
+  const [sectorOrder, setSectorOrder] = useState<string[]>([]);
 
   const loadAnalysis = useCallback(async () => {
     setLoading(true);
@@ -160,61 +185,152 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
     loadAnalysis();
   }, [loadAnalysis]);
 
-  useEffect(() => {
-    if (!taskId || !polling) return;
-    const intervalId = window.setInterval(async () => {
-      pollCountRef.current += 1;
-      if (pollCountRef.current > MAX_POLLS) {
-        window.clearInterval(intervalId);
-        setPolling(false);
-        addToast("분석이 시간 내 완료되지 않았습니다. 잠시 후 다시 확인해주세요.", "error");
-        return;
-      }
-      try {
-        const status = await api.get<NewsTaskStatus>(`/news/analyses/tasks/${taskId}/`);
-        if (status.state === "SUCCESS") {
-          window.clearInterval(intervalId);
-          setPolling(false);
-          addToast("분석이 완료되었습니다.", "success");
-          await loadAnalysis();
-        } else if (status.state === "FAILURE") {
-          window.clearInterval(intervalId);
-          setPolling(false);
-          addToast(`분석 실패: ${status.error ?? "알 수 없는 오류"}`, "error");
-        }
-      } catch {
-        // 일시 오류는 무시 — 다음 폴링 사이클에서 재시도
-      }
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(intervalId);
-  }, [taskId, polling, loadAnalysis, addToast]);
-
   async function handleRegenerate() {
-    if (polling) return;
-    const targetDate = analysis?.analysis_date ?? initialDate ?? new Date().toISOString().slice(0, 10);
-    if (!window.confirm("뉴스 분석을 다시 실행합니다. 약 30초~1분 소요됩니다. 계속할까요?")) return;
+    if (streamingActive) return;
+    const targetDate =
+      analysis?.analysis_date ?? initialDate ?? new Date().toISOString().slice(0, 10);
+    if (!window.confirm("뉴스 분석을 다시 실행합니다. 약 1~3분 소요됩니다. 계속할까요?")) return;
+
+    setStreamingActive(true);
+    setStreamSectors({});
+    setSectorOrder([]);
+    setStreamOverall({ text: "", status: "pending" });
+
+    let res: Response;
     try {
-      const res = await api.post<{ task_id: string }>("/news/analyses/run/", {
-        market: "KR",
-        target_date: targetDate,
+      res = await fetch("/api/v1/news/analyses/run-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market: "KR", target_date: targetDate }),
       });
-      pollCountRef.current = 0;
-      setTaskId(res.task_id);
-      setPolling(true);
-      addToast("분석을 시작했습니다. 완료되면 자동으로 갱신됩니다.", "success");
     } catch (err) {
-      addToast(err instanceof Error ? err.message : "분석 요청 실패", "error");
+      addToast(err instanceof Error ? err.message : "스트리밍 시작 실패", "error");
+      setStreamingActive(false);
+      return;
+    }
+
+    if (!res.ok) {
+      addToast(`분석 요청 실패: HTTP ${res.status}`, "error");
+      setStreamingActive(false);
+      return;
+    }
+
+    let lastTokenAt = Date.now();
+    let warned = false;
+    const watchdog = window.setInterval(() => {
+      if (!warned && Date.now() - lastTokenAt > 30_000) {
+        warned = true;
+        addToast("AI 서비스 응답이 지연되고 있습니다.", "error");
+      }
+    }, 5_000);
+
+    try {
+      for await (const ev of readSSE<unknown>(res)) {
+        lastTokenAt = Date.now();
+        switch (ev.event) {
+          case "graph_start": {
+            const data = ev.data as GraphStartEv;
+            const sectors = data.sectors ?? [];
+            setSectorOrder(sectors);
+            setStreamSectors(
+              Object.fromEntries(
+                sectors.map((s) => [s, { text: "", status: "pending" as StreamStatus }]),
+              ),
+            );
+            break;
+          }
+          case "node_start": {
+            const data = ev.data as NodeEv;
+            if (data.node === "sector_analyze_node") {
+              setStreamSectors((prev) => {
+                const next: Record<string, SectorStream> = { ...prev };
+                for (const k of Object.keys(next)) {
+                  if (next[k].status === "pending") {
+                    next[k] = { ...next[k], status: "streaming" };
+                  }
+                }
+                return next;
+              });
+            } else if (data.node === "aggregate_node") {
+              setStreamOverall((prev) => ({ ...prev, status: "streaming" }));
+            }
+            break;
+          }
+          case "token": {
+            const data = ev.data as TokenEv;
+            const text = data.text ?? "";
+            if (data.scope === "sector" && data.sector) {
+              const k = data.sector;
+              setStreamSectors((prev) => {
+                const cur = prev[k] ?? { text: "", status: "streaming" as StreamStatus };
+                return {
+                  ...prev,
+                  [k]: { ...cur, text: cur.text + text, status: "streaming" },
+                };
+              });
+            } else if (data.scope === "aggregate") {
+              setStreamOverall((prev) => ({
+                text: prev.text + text,
+                status: "streaming",
+              }));
+            }
+            break;
+          }
+          case "node_done": {
+            const data = ev.data as NodeEv;
+            if (data.node === "sector_analyze_node" && data.sector_analyses) {
+              const counts = data.sector_article_counts ?? {};
+              setStreamSectors((prev) => {
+                const next: Record<string, SectorStream> = { ...prev };
+                for (const [name, full] of Object.entries(data.sector_analyses ?? {})) {
+                  const cur = next[name] ?? { text: "", status: "done" as StreamStatus };
+                  next[name] = {
+                    ...cur,
+                    text: full,
+                    status: "done",
+                    articleCount: counts[name] ?? cur.articleCount,
+                  };
+                }
+                return next;
+              });
+            } else if (data.node === "aggregate_node" && typeof data.full_text === "string") {
+              setStreamOverall({ text: data.full_text, status: "done" });
+            }
+            break;
+          }
+          case "complete": {
+            await loadAnalysis();
+            addToast("분석이 완료되었습니다.", "success");
+            break;
+          }
+          case "error": {
+            const data = ev.data as ErrorEv;
+            addToast(`분석 실패: ${data.message ?? "알 수 없는 오류"}`, "error");
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "스트리밍 중 오류", "error");
+    } finally {
+      window.clearInterval(watchdog);
+      setStreamingActive(false);
     }
   }
 
+
+  const today = new Date().toISOString().slice(0, 10);
+  const currentDate = analysis?.analysis_date ?? initialDate ?? today;
+  const nextDate = shiftDate(currentDate, 1);
+  const isAtToday = currentDate >= today;
+
   function handlePrevDate() {
-    const base = analysis?.analysis_date ?? initialDate ?? new Date().toISOString().slice(0, 10);
-    router.push(`/news/${shiftDate(base, -1)}`);
+    router.push(`/news/${shiftDate(currentDate, -1)}`);
   }
 
   function handleNextDate() {
-    const base = analysis?.analysis_date ?? initialDate ?? new Date().toISOString().slice(0, 10);
-    router.push(`/news/${shiftDate(base, +1)}`);
+    if (isAtToday) return;
+    router.push(`/news/${nextDate}`);
   }
 
   return (
@@ -243,9 +359,14 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
           <button
             type="button"
             onClick={handleNextDate}
+            disabled={isAtToday}
+            aria-disabled={isAtToday}
+            title={isAtToday ? "오늘 이후 날짜는 선택할 수 없습니다" : undefined}
             className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)]
                        border border-[var(--color-border)] text-sm text-[var(--color-text-sub)]
-                       hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                       hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]
+                       disabled:cursor-not-allowed disabled:opacity-40
+                       disabled:hover:border-[var(--color-border)] disabled:hover:text-[var(--color-text-sub)]"
             aria-label="다음 날짜"
           >
             ›
@@ -254,12 +375,66 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
             variant="point"
             size="sm"
             onClick={handleRegenerate}
-            disabled={polling}
+            disabled={streamingActive}
           >
-            {polling ? "분석 중…" : "🔄 다시 생성"}
+            {streamingActive ? "분석 중…" : "🔄 다시 생성"}
           </Button>
         </div>
       </header>
+
+      {streamingActive && (
+        <div className="mb-4 flex flex-col gap-3">
+          <Card padding="md" variant="outlined">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-[var(--color-text)]">실시간 분석</h2>
+              <span className="text-[10px] text-[var(--color-text-sub)]">
+                노드별 진행 상황을 실시간으로 표시합니다.
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {sectorOrder.map((name) => {
+                const s = streamSectors[name] ?? { text: "", status: "pending" as StreamStatus };
+                return (
+                  <StreamingSectorCard
+                    key={name}
+                    name={name}
+                    text={s.text}
+                    status={s.status}
+                    articleCount={s.articleCount}
+                    elapsedMs={s.elapsedMs}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="mt-3 rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-xs font-bold text-[var(--color-text)]">종합 요약</span>
+                <span className="text-[10px] text-[var(--color-text-sub)]">
+                  {streamOverall.status === "pending"
+                    ? "대기 중…"
+                    : streamOverall.status === "streaming"
+                      ? "작성 중…"
+                      : "완료"}
+                </span>
+              </div>
+              {streamOverall.text ? (
+                <p className="text-[13px] leading-relaxed text-[var(--color-text)]">
+                  {streamOverall.text}
+                  {streamOverall.status === "streaming" && (
+                    <span className="ml-1 inline-block h-3 w-[2px] animate-pulse bg-[var(--color-primary)] align-middle" />
+                  )}
+                </p>
+              ) : (
+                <p className="text-xs text-[var(--color-text-sub)]">
+                  섹터 분석이 끝나면 자동으로 작성됩니다.
+                </p>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {loading ? (
         <Card padding="md">

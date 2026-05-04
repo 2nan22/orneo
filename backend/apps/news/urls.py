@@ -8,6 +8,11 @@ from apps.news import views
 urlpatterns = [
     path("analyses/", views.NewsAnalysisListView.as_view(), name="news-analysis-list"),
     path("analyses/run/", views.NewsAnalysisRunView.as_view(), name="news-analysis-run"),
+    path(
+        "analyses/run-stream/",
+        views.news_analysis_run_stream,
+        name="news-analysis-run-stream",
+    ),
     path("analyses/latest/", views.NewsAnalysisLatestView.as_view(), name="news-analysis-latest"),
     path(
         "analyses/by-date/<str:analysis_date>/",

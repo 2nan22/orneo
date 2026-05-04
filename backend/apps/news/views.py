@@ -3,19 +3,29 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from datetime import date
 
+import httpx
+from asgiref.sync import sync_to_async
 from celery.result import AsyncResult
+from django.conf import settings
+from django.http import HttpRequest, StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.news.models import NewsAnalysis
+from apps.news.models import MarketSector, NewsAnalysis, NewsSectorAnalysis
 from apps.news.serializers import NewsAnalysisSerializer
 from apps.news.tasks import run_daily_news_analysis
+
+logger = logging.getLogger(__name__)
 
 
 class NewsAnalysisListView(generics.ListAPIView):
@@ -123,3 +133,150 @@ class NewsAnalysisTaskStatusView(APIView):
         elif result.failed():
             payload["error"] = str(result.result) if result.result else "task failed"
         return Response(payload)
+
+
+# ---------------------------------------------------------------------------
+# 실시간 스트리밍 분석 — ai_service SSE를 그대로 통과시키며 complete 시 DB 저장
+# ---------------------------------------------------------------------------
+
+
+async def _authenticate_async(request: HttpRequest):
+    """JWT 토큰을 비동기 컨텍스트에서 검증한다."""
+    auth = JWTAuthentication()
+    result = await sync_to_async(auth.authenticate, thread_sensitive=False)(request)
+    if not result:
+        raise PermissionError("authentication required")
+    return result[0]
+
+
+@sync_to_async(thread_sensitive=True)
+def _persist_complete_payload(target_date: str, market: str, payload: dict) -> None:
+    """SSE complete 페이로드를 NewsAnalysis/NewsSectorAnalysis에 저장한다."""
+    sector_analyses = payload.get("sector_analyses") or {}
+    counts = payload.get("sector_article_counts") or {}
+
+    analysis_obj, _ = NewsAnalysis.objects.update_or_create(
+        analysis_date=target_date,
+        market=market,
+        engine_type="langgraph",
+        defaults={
+            "run_status": "COMPLETED",
+            "overall_analysis": payload.get("overall_analysis", ""),
+            "raw_result": {
+                "sector_analyses": sector_analyses,
+                "sector_article_counts": counts,
+                "sector_articles_meta": payload.get("sector_articles_meta", {}),
+                "timings": payload.get("timings", {}),
+            },
+            "run_duration_ms": payload.get("run_duration_ms"),
+            "error_message": "",
+        },
+    )
+
+    if not sector_analyses:
+        return
+
+    sector_map = {
+        s.sector_name_ko: s
+        for s in MarketSector.objects.filter(sector_name_ko__in=sector_analyses.keys())
+    }
+    for sector_name, analysis_text in sector_analyses.items():
+        sector_obj = sector_map.get(sector_name)
+        if not sector_obj:
+            continue
+        NewsSectorAnalysis.objects.update_or_create(
+            analysis=analysis_obj,
+            sector=sector_obj,
+            defaults={
+                "analysis_text": analysis_text,
+                "article_count": counts.get(sector_name, 0),
+            },
+        )
+
+
+@csrf_exempt
+async def news_analysis_run_stream(request: HttpRequest):
+    """SSE 프록시 — ai_service 스트림을 통과시키고 complete 이벤트 시 DB에 저장."""
+    if request.method != "POST":
+        return StreamingHttpResponse(b"", status=405)
+
+    try:
+        await _authenticate_async(request)
+    except PermissionError:
+        return StreamingHttpResponse(b"", status=401)
+    except Exception as exc:
+        logger.warning("SSE 인증 처리 실패: %s", exc)
+        return StreamingHttpResponse(b"", status=401)
+
+    try:
+        body = json.loads((request.body or b"{}").decode("utf-8"))
+    except json.JSONDecodeError:
+        body = {}
+    target_date = body.get("target_date") or str(date.today())
+    market = body.get("market", "KR")
+
+    sectors = await sync_to_async(list, thread_sensitive=True)(
+        MarketSector.objects.filter(is_active=True, market__in=[market, "ALL"])
+        .order_by("display_order")
+        .values_list("sector_name_ko", flat=True)
+    )
+
+    async def event_stream():
+        ai_url = f"{settings.AI_SERVICE_URL}/news/analyze/stream"
+        headers = {"X-Service-Secret": settings.AI_SERVICE_SECRET or ""}
+        payload = {
+            "target_date": target_date,
+            "market": market,
+            "sectors": sectors,
+        }
+
+        last_event: str | None = None
+        data_lines: list[str] = []
+
+        try:
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream(
+                    "POST", ai_url, json=payload, headers=headers
+                ) as upstream:
+                    if upstream.status_code != 200:
+                        msg = f"ai_service status {upstream.status_code}"
+                        logger.warning("SSE upstream 오류: %s", msg)
+                        yield f'event: error\ndata: {{"message": "{msg}"}}\n\n'.encode("utf-8")
+                        return
+                    async for raw_line in upstream.aiter_lines():
+                        # 프론트로 즉시 통과
+                        yield (raw_line + "\n").encode("utf-8")
+
+                        if raw_line.startswith("event: "):
+                            last_event = raw_line[len("event: "):].strip()
+                            data_lines = []
+                        elif raw_line.startswith("data: "):
+                            data_lines.append(raw_line[len("data: "):])
+                        elif raw_line == "":
+                            # 프레임 종료 — complete 이벤트면 DB 저장
+                            if last_event == "complete" and data_lines:
+                                try:
+                                    payload_obj = json.loads("\n".join(data_lines))
+                                    await _persist_complete_payload(
+                                        target_date, market, payload_obj
+                                    )
+                                except Exception:
+                                    logger.exception("complete 페이로드 저장 실패")
+                            last_event = None
+                            data_lines = []
+        except httpx.HTTPError as exc:
+            logger.exception("SSE upstream 연결 실패")
+            err_msg = json.dumps({"message": str(exc)}, ensure_ascii=False)
+            yield f"event: error\ndata: {err_msg}\n\n".encode("utf-8")
+            return
+
+        # SSE 표준상 마지막 빈 줄
+        yield b"\n"
+
+    response = StreamingHttpResponse(
+        event_stream(),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
