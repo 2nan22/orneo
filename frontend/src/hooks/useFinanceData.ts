@@ -9,9 +9,11 @@ import type { FinanceEvent, JournalEntry } from "@/lib/types";
 type CategoryFilter = "전체" | "주식" | "부동산";
 
 export interface DartDisclosure {
-  corp_name: string;
-  report_nm: string;
-  rcept_dt:  string;
+  corp_name:    string;
+  report_name:  string;
+  receipt_date: string;
+  receipt_no:   string;
+  url:          string;
 }
 
 /**
@@ -79,7 +81,7 @@ export function useFinanceData() {
         `/api/public-data/dart?corp_name=${encodeURIComponent(corpName)}`,
       );
       const json = await res.json();
-      setDartResults((json?.data ?? []).slice(0, 3));
+      setDartResults((json?.data ?? []).slice(0, 5));
     } catch {
       setDartResults([]);
     } finally {

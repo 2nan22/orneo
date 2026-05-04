@@ -176,15 +176,24 @@ export default function FinancePage() {
             <p className="text-xs text-slate-500">검색 결과가 없습니다.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {dartResults.map((d, i) => (
-                <div key={i}
-                     className="flex items-start justify-between rounded-[var(--radius-lg)] bg-slate-50 p-3">
-                  <div>
+              {dartResults.map((d) => (
+                <a
+                  key={d.receipt_no}
+                  href={d.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start justify-between gap-3 rounded-[var(--radius-lg)]
+                             bg-slate-50 p-3 hover:bg-slate-100 transition-colors"
+                  title="DART에서 원본 공시 보기 (새 창)"
+                >
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-black text-[#0B132B]">{d.corp_name}</p>
-                    <p className="mt-0.5 text-xs text-slate-500 leading-4">{d.report_nm}</p>
+                    <p className="mt-0.5 text-xs leading-4 text-slate-500 line-clamp-2">
+                      {d.report_name || "(보고서명 없음)"}
+                    </p>
                   </div>
-                  <span className="shrink-0 text-[10px] text-slate-400">{d.rcept_dt}</span>
-                </div>
+                  <span className="shrink-0 text-[10px] text-slate-400">{d.receipt_date}</span>
+                </a>
               ))}
             </div>
           )}
