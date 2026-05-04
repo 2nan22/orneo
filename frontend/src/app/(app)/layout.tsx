@@ -53,12 +53,22 @@ const BELL_ICON = (
   </svg>
 );
 
+const NEWS_ICON = (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z" />
+    <path d="M8 8h8" />
+    <path d="M8 12h8" />
+    <path d="M8 16h5" />
+  </svg>
+);
+
 // ─── 사이드바 전용 내비 (데스크톱) ────────────────────────────────────────────
 
 const SIDEBAR_NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드",      icon: HOME_ICON    },
   { href: "/studio",    label: "Studio",        icon: STUDIO_ICON  },
   { href: "/finance",   label: "Finance",       icon: WALLET_ICON  },
+  { href: "/news",      label: "News",          icon: NEWS_ICON    },
   { href: "/reports",   label: "Review",        icon: GROWTH_ICON  },
   { href: "/settings",  label: "설정",          icon: SETTINGS_ICON},
 ];

@@ -104,6 +104,34 @@ export type Goal = {
   created_at: string;
 };
 
+export type NewsSectorAnalysis = {
+  id: number;
+  sector_name_ko: string;
+  analysis_text: string;
+  article_count: number;
+};
+
+export type NewsAnalysisRunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+
+export type NewsAnalysis = {
+  id: number;
+  analysis_date: string;
+  market: "KR" | "US" | "ALL";
+  engine_type: string;
+  run_status: NewsAnalysisRunStatus;
+  overall_analysis: string;
+  run_duration_ms: number | null;
+  sector_analyses: NewsSectorAnalysis[];
+  created_at: string;
+};
+
+export type NewsTaskStatus = {
+  task_id: string;
+  state: "PENDING" | "STARTED" | "PROGRESS" | "SUCCESS" | "FAILURE" | string;
+  result?: { analysis_id: number; run_duration_ms: number };
+  error?: string;
+};
+
 export type WeeklyReport = {
   id: number;
   week_start: string;
