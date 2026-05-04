@@ -8,3 +8,7 @@ services:
   redis:
     ports:
       - "6379:6379"
+
+  backend:
+    # SSE/async view를 위해 dev에서는 ASGI(uvicorn)로 실행한다.
+    command: uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --reload

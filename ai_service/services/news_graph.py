@@ -1,8 +1,10 @@
+# ai_service/services/news_graph.py
 """AI-Agent 멀티-섹터 LangGraph 로직 (oreneo AI 서비스용)."""
 import asyncio
 import logging
 import os
-from typing import TypedDict
+import time
+from typing import Any, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -65,9 +67,15 @@ class AgentState(TypedDict):
     sector_analyses: dict[str, str]
     overall_analysis: str
     error_count: int
+    timings: dict[str, Any]
 
 
-def _make_llm() -> ChatOpenAI:
+def _make_llm(streaming: bool = False) -> ChatOpenAI:
+    """Ollama 호환 ChatOpenAI 인스턴스를 생성한다.
+
+    Args:
+        streaming: True면 ainvoke 호출 시 토큰 단위 스트림 이벤트가 emit된다.
+    """
     base = settings.ollama_base_url.rstrip("/")
     if not base.endswith("/v1"):
         base = f"{base}/v1"
@@ -76,11 +84,13 @@ def _make_llm() -> ChatOpenAI:
         api_key="ollama",
         model=os.environ.get("OLLAMA_MODEL", settings.gemma_model),
         temperature=0.3,
+        streaming=streaming,
     )
 
 
 async def multi_search_node(state: AgentState) -> dict:
     """섹터별 Tavily 검색."""
+    t0 = time.monotonic()
     market = state["market"]
     sector_articles: dict[str, list[str]] = {}
     sector_articles_meta: dict[str, list[dict]] = {}
@@ -112,72 +122,106 @@ async def multi_search_node(state: AgentState) -> dict:
             sector_articles_meta[sector] = []
 
     total = sum(len(v) for v in sector_articles.values())
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
     return {
         "sector_articles": sector_articles,
         "sector_articles_meta": sector_articles_meta,
         "error_count": state["error_count"] + (0 if total > 0 else 1),
+        "timings": {**state.get("timings", {}), "multi_search_ms": elapsed_ms},
     }
 
 
-async def sector_analyze_node(state: AgentState) -> dict:
-    """섹터별 분석 보고서 생성."""
-    llm = _make_llm()
-    sector_analyses: dict[str, str] = {}
-    for sector, articles in state["sector_articles"].items():
-        text = "\n\n---\n\n".join(articles) if articles else "검색 결과 없음."
+def _make_sector_analyze_node(streaming: bool):
+    """sector_analyze 노드 함수를 streaming 플래그 closure로 생성."""
+
+    async def sector_analyze_node(state: AgentState) -> dict:
+        """섹터별 분석 보고서 생성."""
+        llm = _make_llm(streaming=streaming)
+        sector_analyses: dict[str, str] = {}
+        sector_ms: dict[str, int] = {}
+        for sector, articles in state["sector_articles"].items():
+            text = "\n\n---\n\n".join(articles) if articles else "검색 결과 없음."
+            user_prompt = (
+                f"대상: [{sector}] 섹터 / {state['target_date']} / 시장 {state['market']}\n\n"
+                f"[기사 모음]\n{text}"
+            )
+            t0 = time.monotonic()
+            try:
+                resp = await llm.ainvoke(
+                    [
+                        SystemMessage(content=SECTOR_ANALYZE_SYSTEM),
+                        HumanMessage(content=user_prompt),
+                    ],
+                    config={"tags": [f"sector:{sector}"], "run_name": f"sector_llm:{sector}"},
+                )
+                sector_analyses[sector] = resp.content
+            except Exception as exc:
+                logger.warning("섹터 '%s' LLM 분석 실패, fallback 반환: %s", sector, exc)
+                sector_analyses[sector] = (
+                    "## Summary\n"
+                    f"{sector} 섹터 분석을 생성하지 못했습니다.\n"
+                    "## Key Signals\n"
+                    f"수집된 기사 {len(articles)}건. LLM 호출 오류로 인해 신호를 추출하지 못했습니다.\n"
+                    "## Risk Factors\n"
+                    "분석 결과 신뢰성이 낮으므로 직접 출처 기사를 확인하시기 바랍니다."
+                )
+            finally:
+                sector_ms[sector] = int((time.monotonic() - t0) * 1000)
+        return {
+            "sector_analyses": sector_analyses,
+            "timings": {**state.get("timings", {}), "sector_analyze_ms": sector_ms},
+        }
+
+    return sector_analyze_node
+
+
+def _make_aggregate_node(streaming: bool):
+    """aggregate 노드 함수를 streaming 플래그 closure로 생성."""
+
+    async def aggregate_node(state: AgentState) -> dict:
+        """전체 요약 생성."""
+        t0 = time.monotonic()
+        llm = _make_llm(streaming=streaming)
+        summaries = "\n\n".join(
+            f"### {s}\n{a[:800]}" for s, a in state["sector_analyses"].items()
+        )
         user_prompt = (
-            f"대상: [{sector}] 섹터 / {state['target_date']} / 시장 {state['market']}\n\n"
-            f"[기사 모음]\n{text}"
+            f"대상: {state['target_date']} {state['market']} 시장 멀티-섹터 종합 요약\n\n"
+            f"[섹터별 분석 보고서]\n{summaries}"
         )
         try:
-            resp = await llm.ainvoke([
-                SystemMessage(content=SECTOR_ANALYZE_SYSTEM),
-                HumanMessage(content=user_prompt),
-            ])
-            sector_analyses[sector] = resp.content
-        except Exception as exc:
-            logger.warning("섹터 '%s' LLM 분석 실패, fallback 반환: %s", sector, exc)
-            sector_analyses[sector] = (
-                "## Summary\n"
-                f"{sector} 섹터 분석을 생성하지 못했습니다.\n"
-                "## Key Signals\n"
-                f"수집된 기사 {len(articles)}건. LLM 호출 오류로 인해 신호를 추출하지 못했습니다.\n"
-                "## Risk Factors\n"
-                "분석 결과 신뢰성이 낮으므로 직접 출처 기사를 확인하시기 바랍니다."
+            resp = await llm.ainvoke(
+                [
+                    SystemMessage(content=AGGREGATE_SYSTEM),
+                    HumanMessage(content=user_prompt),
+                ],
+                config={"tags": ["aggregate"], "run_name": "aggregate_llm"},
             )
-    return {"sector_analyses": sector_analyses}
-
-
-async def aggregate_node(state: AgentState) -> dict:
-    """전체 요약 생성."""
-    llm = _make_llm()
-    summaries = "\n\n".join(
-        f"### {s}\n{a[:800]}" for s, a in state["sector_analyses"].items()
-    )
-    user_prompt = (
-        f"대상: {state['target_date']} {state['market']} 시장 멀티-섹터 종합 요약\n\n"
-        f"[섹터별 분석 보고서]\n{summaries}"
-    )
-    try:
-        resp = await llm.ainvoke([
-            SystemMessage(content=AGGREGATE_SYSTEM),
-            HumanMessage(content=user_prompt),
-        ])
-        overall = resp.content
-    except Exception as exc:
-        logger.warning("종합 요약 LLM 실패, fallback 반환: %s", exc)
-        overall = (
-            f"{state['target_date']} {state['market']} 시장 뉴스가 수집되었습니다. "
-            "LLM 분석 오류로 자동 요약이 생성되지 않았습니다."
+            overall = resp.content
+        except Exception as exc:
+            logger.warning("종합 요약 LLM 실패, fallback 반환: %s", exc)
+            overall = (
+                f"{state['target_date']} {state['market']} 시장 뉴스가 수집되었습니다. "
+                "LLM 분석 오류로 자동 요약이 생성되지 않았습니다."
+            )
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        timings = {**state.get("timings", {}), "aggregate_ms": elapsed_ms}
+        timings["total_ms"] = (
+            timings.get("multi_search_ms", 0)
+            + sum(timings.get("sector_analyze_ms", {}).values())
+            + timings.get("aggregate_ms", 0)
         )
-    sector_article_counts = {
-        s: len(arts) for s, arts in state["sector_articles"].items()
-    }
-    return {
-        "overall_analysis": overall,
-        "sector_article_counts": sector_article_counts,
-        "sector_articles_meta": state.get("sector_articles_meta", {}),
-    }
+        sector_article_counts = {
+            s: len(arts) for s, arts in state["sector_articles"].items()
+        }
+        return {
+            "overall_analysis": overall,
+            "sector_article_counts": sector_article_counts,
+            "sector_articles_meta": state.get("sector_articles_meta", {}),
+            "timings": timings,
+        }
+
+    return aggregate_node
 
 
 def _route(state: AgentState) -> str:
@@ -187,12 +231,18 @@ def _route(state: AgentState) -> str:
     return "multi_search_node"
 
 
-def build_news_graph():
-    """뉴스 분석 StateGraph 컴파일."""
+def build_news_graph(streaming: bool = False):
+    """뉴스 분석 StateGraph 컴파일.
+
+    Args:
+        streaming: True면 sector_analyze/aggregate 노드의 LLM 호출이 토큰 단위
+            스트림 이벤트(`on_chat_model_stream`)를 emit한다. 비스트리밍 경로는
+            False(기본값) — 이때 LLM은 한 번에 전체 응답을 반환한다.
+    """
     b = StateGraph(AgentState)
     b.add_node("multi_search_node", multi_search_node)
-    b.add_node("sector_analyze_node", sector_analyze_node)
-    b.add_node("aggregate_node", aggregate_node)
+    b.add_node("sector_analyze_node", _make_sector_analyze_node(streaming))
+    b.add_node("aggregate_node", _make_aggregate_node(streaming))
     b.set_entry_point("multi_search_node")
     b.add_conditional_edges(
         "multi_search_node",

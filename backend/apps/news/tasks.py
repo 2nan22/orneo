@@ -48,7 +48,7 @@ def run_daily_news_analysis(
                 "engine": engine,
             },
             headers={"X-Service-Secret": AI_SERVICE_SECRET},
-            timeout=300,
+            timeout=600,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -68,6 +68,7 @@ def run_daily_news_analysis(
         "sector_analyses": data["sector_analyses"],
         "sector_article_counts": data.get("sector_article_counts", {}),
         "sector_articles_meta": data.get("sector_articles_meta", {}),
+        "timings": data.get("timings", {}),
     }
     analysis_obj.run_duration_ms = elapsed_ms
     analysis_obj.save()
