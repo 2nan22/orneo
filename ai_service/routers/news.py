@@ -21,6 +21,7 @@ class NewsAnalyzeRequest(BaseModel):
 class NewsAnalyzeResponse(BaseModel):
     overall_analysis: str
     sector_analyses: dict[str, str]
+    sector_article_counts: dict[str, int]
     run_duration_ms: int
 
 
@@ -37,6 +38,7 @@ async def analyze_news(req: NewsAnalyzeRequest) -> NewsAnalyzeResponse:
             "sectors": req.sectors,
             "watchlist_companies": req.watchlist_companies,
             "sector_articles": {},
+            "sector_article_counts": {},
             "sector_analyses": {},
             "overall_analysis": "",
             "error_count": 0,
@@ -50,5 +52,6 @@ async def analyze_news(req: NewsAnalyzeRequest) -> NewsAnalyzeResponse:
     return NewsAnalyzeResponse(
         overall_analysis=result["overall_analysis"],
         sector_analyses=result["sector_analyses"],
+        sector_article_counts=result.get("sector_article_counts", {}),
         run_duration_ms=elapsed_ms,
     )

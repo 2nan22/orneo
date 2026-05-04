@@ -236,30 +236,48 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
           {/* 섹터 탭 */}
           {analysis.sector_analyses.length > 0 && (
             <Card padding="md">
-              <div className="-mx-4 mb-3 overflow-x-auto px-4">
+              <div className="-mx-4 mb-3 overflow-x-auto px-4 pl-1">
                 <ul className="flex min-w-max gap-2">
-                  {analysis.sector_analyses.map((s) => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        onClick={() => setActiveSectorId(s.id)}
-                        className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                          activeSectorId === s.id
-                            ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
-                            : "border-[var(--color-border)] bg-white text-[var(--color-text-sub)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                        }`}
-                      >
-                        {s.sector_name_ko}
-                        <span className="ml-1.5 text-[10px] opacity-70">{s.article_count}</span>
-                      </button>
-                    </li>
-                  ))}
+                  {analysis.sector_analyses.map((s) => {
+                    const isActive = activeSectorId === s.id;
+                    const isEmpty = s.article_count === 0;
+                    let chipClass: string;
+                    if (isActive) {
+                      chipClass = "border-[var(--color-primary)] bg-[var(--color-primary)] text-white";
+                    } else if (isEmpty) {
+                      chipClass =
+                        "border-dashed border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-sub)] opacity-60 hover:opacity-90";
+                    } else {
+                      chipClass =
+                        "border-[var(--color-border)] bg-white text-[var(--color-text-sub)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]";
+                    }
+                    return (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          onClick={() => setActiveSectorId(s.id)}
+                          className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${chipClass}`}
+                          title={isEmpty ? "수집된 기사가 없습니다" : undefined}
+                        >
+                          {s.sector_name_ko}
+                          <span className="ml-1.5 text-[10px] opacity-70">{s.article_count}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
               {(() => {
                 const active = analysis.sector_analyses.find((s) => s.id === activeSectorId);
                 if (!active) return null;
+                if (active.article_count === 0) {
+                  return (
+                    <p className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-4 text-center text-xs text-[var(--color-text-sub)]">
+                      이 섹터는 해당 날짜에 수집된 기사가 없습니다.
+                    </p>
+                  );
+                }
                 return <MarkdownSections text={active.analysis_text} />;
               })()}
             </Card>

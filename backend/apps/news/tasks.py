@@ -72,13 +72,17 @@ def run_daily_news_analysis(
         s.sector_name_ko: s
         for s in MarketSector.objects.filter(sector_name_ko__in=sectors)
     }
+    counts = data.get("sector_article_counts", {})
     for sector_name, analysis_text in data["sector_analyses"].items():
         sector_obj = sector_map.get(sector_name)
         if sector_obj:
             NewsSectorAnalysis.objects.update_or_create(
                 analysis=analysis_obj,
                 sector=sector_obj,
-                defaults={"analysis_text": analysis_text},
+                defaults={
+                    "analysis_text": analysis_text,
+                    "article_count": counts.get(sector_name, 0),
+                },
             )
 
     logger.info("뉴스 분석 완료: %s %s (%d ms)", target_date, market, elapsed_ms)

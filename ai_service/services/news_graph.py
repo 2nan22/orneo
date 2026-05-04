@@ -60,6 +60,7 @@ class AgentState(TypedDict):
     sectors: list[str]
     watchlist_companies: list[str]
     sector_articles: dict[str, list[str]]
+    sector_article_counts: dict[str, int]
     sector_analyses: dict[str, str]
     overall_analysis: str
     error_count: int
@@ -160,7 +161,13 @@ async def aggregate_node(state: AgentState) -> dict:
             f"{state['target_date']} {state['market']} 시장 뉴스가 수집되었습니다. "
             "LLM 분석 오류로 자동 요약이 생성되지 않았습니다."
         )
-    return {"overall_analysis": overall}
+    sector_article_counts = {
+        s: len(arts) for s, arts in state["sector_articles"].items()
+    }
+    return {
+        "overall_analysis": overall,
+        "sector_article_counts": sector_article_counts,
+    }
 
 
 def _route(state: AgentState) -> str:
