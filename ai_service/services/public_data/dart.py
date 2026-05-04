@@ -3,7 +3,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import io
 import logging
+import time
+import xml.etree.ElementTree as ET
+import zipfile
+from datetime import date, timedelta
 
 import httpx
 
@@ -11,6 +17,97 @@ logger = logging.getLogger(__name__)
 
 DART_BASE_URL = "https://opendart.fss.or.kr/api/"
 DEFAULT_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+CORP_INDEX_DOWNLOAD_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+CORP_INDEX_TTL_SECONDS = 60 * 60 * 24
+DEFAULT_LOOKBACK_DAYS = 90
+
+
+class _DartCorpIndex:
+    """DART corpCode.xml 다운로드 결과를 메모리 캐시한다.
+
+    DART의 ``company.json``은 ``corp_code`` 필수이므로 회사명 검색을 직접
+    지원하지 않는다. 모든 기업코드를 ZIP 파일로 일괄 제공하는 ``corpCode.xml``
+    엔드포인트를 1일 1회 다운로드해 인메모리 인덱스로 검색을 처리한다.
+    """
+
+    def __init__(self) -> None:
+        self._entries: list[dict[str, str]] = []
+        self._loaded_at: float = 0.0
+        self._lock = asyncio.Lock()
+
+    async def ensure_loaded(self, *, api_key: str) -> None:
+        """TTL 만료 시 corpCode.xml을 다시 받아 인덱스를 갱신한다."""
+        async with self._lock:
+            if self._entries and (time.time() - self._loaded_at) < CORP_INDEX_TTL_SECONDS:
+                return
+            zip_bytes = await self._download(api_key=api_key)
+            self._entries = self._parse(zip_bytes)
+            self._loaded_at = time.time()
+            logger.info("[DART] 회사코드 인덱스 로드 완료: count=%d", len(self._entries))
+
+    @staticmethod
+    async def _download(*, api_key: str) -> bytes:
+        async with httpx.AsyncClient(
+            base_url=DART_BASE_URL, timeout=CORP_INDEX_DOWNLOAD_TIMEOUT
+        ) as client:
+            response = await client.get("corpCode.xml", params={"crtfc_key": api_key})
+            response.raise_for_status()
+            return response.content
+
+    @staticmethod
+    def _parse(zip_bytes: bytes) -> list[dict[str, str]]:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            with zf.open("CORPCODE.xml") as fp:
+                tree = ET.parse(fp)
+        result = []
+        for elem in tree.getroot().iter("list"):
+            corp_code = (elem.findtext("corp_code") or "").strip()
+            corp_name = (elem.findtext("corp_name") or "").strip()
+            stock_code = (elem.findtext("stock_code") or "").strip()
+            if corp_code and corp_name:
+                result.append(
+                    {"corp_code": corp_code, "corp_name": corp_name, "stock_code": stock_code}
+                )
+        return result
+
+    def search(self, keyword: str, *, limit: int = 10) -> list[dict[str, str]]:
+        """회사명 키워드로 인덱스를 검색한다.
+
+        정확히 일치 → 접두 일치 → 부분 일치 순으로 정렬하고, 동순위 안에서는
+        상장 종목(stock_code 보유)을 우선한다.
+        """
+        kw = keyword.strip().lower()
+        if not kw or not self._entries:
+            return []
+
+        exact: list[dict[str, str]] = []
+        prefix: list[dict[str, str]] = []
+        contains: list[dict[str, str]] = []
+        for entry in self._entries:
+            name_lower = entry["corp_name"].lower()
+            if name_lower == kw:
+                exact.append(entry)
+            elif name_lower.startswith(kw):
+                prefix.append(entry)
+            elif kw in name_lower:
+                contains.append(entry)
+
+        def rank(entry: dict[str, str]) -> tuple[int, int]:
+            return (0 if entry["stock_code"] else 1, len(entry["corp_name"]))
+
+        merged = sorted(exact, key=rank) + sorted(prefix, key=rank) + sorted(contains, key=rank)
+        return merged[:limit]
+
+    def lookup_corp_code(self, corp_name: str) -> str | None:
+        """회사명에 대해 단일 corp_code를 반환한다.
+
+        검색 결과 1순위 항목의 corp_code를 사용한다.
+        """
+        results = self.search(corp_name, limit=1)
+        return results[0]["corp_code"] if results else None
+
+
+_corp_index = _DartCorpIndex()
 
 
 class DartDisclosureClient:
@@ -41,28 +138,17 @@ class DartDisclosureClient:
             await self._client.aclose()
             self._client = None
 
-    async def _fetch_corp_code(self, *, corp_name: str) -> str:
-        """기업명으로 DART 고유번호를 조회한다.
-
-        Args:
-            corp_name: 회사명.
-
-        Returns:
-            DART 기업 고유번호 (8자리).
+    async def _resolve_corp_code(self, *, corp_name: str) -> str:
+        """회사명을 corp_code로 변환한다.
 
         Raises:
-            ValueError: 해당 기업명을 찾을 수 없는 경우.
+            ValueError: 인덱스에서 해당 회사명을 찾지 못한 경우.
         """
-        params = {"crtfc_key": self._api_key, "corp_name": corp_name}
-        logger.debug("[DART API] 기업코드 조회: corp_name=%s", corp_name)
-        response = await self._http.get("company.json", params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        if data.get("status") != "000":
+        await _corp_index.ensure_loaded(api_key=self._api_key)
+        code = _corp_index.lookup_corp_code(corp_name)
+        if not code:
             raise ValueError(f"기업을 찾을 수 없습니다: {corp_name}")
-
-        return data["corp_code"]
+        return code
 
     async def fetch_disclosures(
         self,
@@ -74,7 +160,7 @@ class DartDisclosureClient:
     ) -> list[dict]:
         """기업명 또는 corp_code로 최근 공시 목록을 반환한다.
 
-        corp_code가 제공되면 기업명 조회 단계를 건너뛴다.
+        corp_code가 제공되면 인덱스 조회 단계를 건너뛴다.
 
         Args:
             corp_name: 회사명 (corp_code 없을 때 사용).
@@ -91,16 +177,20 @@ class DartDisclosureClient:
         if not corp_code:
             if not corp_name:
                 raise ValueError("corp_name 또는 corp_code 중 하나는 필수입니다.")
-            corp_code = await self._fetch_corp_code(corp_name=corp_name)
+            corp_code = await self._resolve_corp_code(corp_name=corp_name)
+
+        # DART list.json은 bgn_de 없이 호출하면 기본 조회 기간이 매우 짧아
+        # 거의 빈 결과를 반환한다. 사용자가 별도 지정하지 않으면 90일을 본다.
+        if not bgn_de:
+            bgn_de = (date.today() - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime("%Y%m%d")
 
         params: dict = {
             "crtfc_key": self._api_key,
             "corp_code": corp_code,
             "page_no": "1",
             "page_count": "10",
+            "bgn_de": bgn_de,
         }
-        if bgn_de:
-            params["bgn_de"] = bgn_de
         if end_de:
             params["end_de"] = end_de
 
@@ -133,30 +223,24 @@ class DartDisclosureClient:
         )
         return result
 
-    async def search_corps(self, *, keyword: str) -> list[dict]:
-        """기업명 키워드로 DART 기업 목록을 검색한다.
+    async def search_corps(self, *, keyword: str, limit: int = 10) -> list[dict]:
+        """회사명 키워드로 DART 기업 목록을 검색한다.
 
-        DART company.json 엔드포인트로 정확히 일치하는 기업을 조회한다.
-        MVP 수준으로 단일 기업명 직접 검색만 지원한다.
+        corpCode.xml 인메모리 인덱스에서 정확/접두/부분 일치 순으로 매칭한다.
 
         Args:
             keyword: 회사명 검색어.
+            limit: 최대 반환 개수.
 
         Returns:
-            기업 코드와 이름 딕셔너리 목록. 미발견 시 빈 리스트.
+            ``[{"corp_code": ..., "corp_name": ..., "stock_code": ...}]`` 목록.
+            미발견 시 빈 리스트.
         """
         if not keyword:
             return []
-
-        params = {"crtfc_key": self._api_key, "corp_name": keyword}
-        logger.debug("[DART API] 기업 검색: keyword=%s", keyword)
         try:
-            response = await self._http.get("company.json", params=params)
-            response.raise_for_status()
-            data = response.json()
-            if data.get("status") != "000":
-                return []
-            return [{"corp_code": data["corp_code"], "corp_name": data["corp_name"]}]
+            await _corp_index.ensure_loaded(api_key=self._api_key)
         except Exception as exc:
-            logger.warning("[DART API] 기업 검색 실패: keyword=%s %s", keyword, exc)
+            logger.warning("[DART API] corpCode 인덱스 로드 실패: %s", exc)
             return []
+        return _corp_index.search(keyword, limit=limit)
