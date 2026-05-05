@@ -123,16 +123,28 @@ export type NewsSectorAnalysis = {
 
 export type NewsAnalysisRunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
+export type MarketCode = "KR" | "US";
+
 export type NewsAnalysis = {
   id: number;
   analysis_date: string;
-  market: "KR" | "US" | "ALL";
+  market: MarketCode | "ALL";
   engine_type: string;
   run_status: NewsAnalysisRunStatus;
   overall_analysis: string;
   run_duration_ms: number | null;
   sector_analyses: NewsSectorAnalysis[];
   created_at: string;
+};
+
+/** market="ALL" 호출 결과의 단일 시장 부분 — NewsAnalysis 전체 페이로드. */
+export type MarketAnalysis = NewsAnalysis;
+
+/** market="ALL" GET / SSE complete 응답 — KR/US 두 시장을 함께 표현 */
+export type FullAnalysis = {
+  analysis_date: string;
+  run_duration_ms: number | null;
+  markets: Record<MarketCode, MarketAnalysis | null>;
 };
 
 export type NewsTaskStatus = {

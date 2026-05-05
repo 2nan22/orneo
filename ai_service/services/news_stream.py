@@ -33,13 +33,18 @@ def _extract_sector_from_tags(tags: list[str]) -> str | None:
     return None
 
 
-def translate_langgraph_event(ev: dict[str, Any]) -> bytes | None:
+def translate_langgraph_event(
+    ev: dict[str, Any], *, market: str | None = None
+) -> bytes | None:
     """LangGraph ``astream_events`` 이벤트 1건을 SSE 프레임으로 변환한다.
 
     Args:
         ev: ``astream_events(version="v2")`` 가 emit하는 이벤트 dict.
             주요 키: ``event``(이벤트 타입), ``name``(노드/모델 이름), ``tags``,
             ``data``(chunk/input/output).
+        market: 단일/다중 시장 양쪽에서 호출 가능. 값이 주어지면 모든 페이로드에
+            ``market`` 필드가 추가된다. 다중 시장(market=ALL) 분기에서 KR/US 두
+            그래프의 이벤트를 구분하는 용도로 사용한다.
 
     Returns:
         SSE 프레임 bytes. 클라이언트로 보낼 필요가 없는 이벤트이면 None.
@@ -50,11 +55,16 @@ def translate_langgraph_event(ev: dict[str, Any]) -> bytes | None:
 
     # 1) 노드 시작 / 끝
     if etype == "on_chain_start" and name in NODE_NAMES:
-        return sse("node_start", {"node": name})
+        payload: dict[str, Any] = {"node": name}
+        if market:
+            payload["market"] = market
+        return sse("node_start", payload)
     if etype == "on_chain_end" and name in NODE_NAMES:
         data = ev.get("data", {}) or {}
         output = data.get("output")
-        payload: dict[str, Any] = {"node": name}
+        payload = {"node": name}
+        if market:
+            payload["market"] = market
         if isinstance(output, dict):
             # sector_analyze_node 의 경우 누적 sector_analyses, aggregate_node 의 경우
             # overall_analysis 텍스트를 함께 실어 프론트에서 누적값 보정에 사용한다.
@@ -82,6 +92,8 @@ def translate_langgraph_event(ev: dict[str, Any]) -> bytes | None:
         payload = {"scope": scope, "text": text}
         if sector:
             payload["sector"] = sector
+        if market:
+            payload["market"] = market
         return sse("token", payload)
 
     return None

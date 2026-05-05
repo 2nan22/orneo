@@ -52,47 +52,98 @@ class NewsAnalysisDetailView(generics.RetrieveAPIView):
     queryset = NewsAnalysis.objects.prefetch_related("sector_analyses__sector")
 
 
-class NewsAnalysisLatestView(generics.RetrieveAPIView):
+class NewsAnalysisLatestView(APIView):
     """가장 최근 완료된 뉴스 분석 결과를 반환한다.
 
     Query params:
-        market: KR(기본) | US | ALL.
+        market: ``KR`` (기본) | ``US`` | ``ALL``.
+            ``ALL`` 인 경우 KR/US 양시장의 가장 최근 완료된 row 를 묶은 ``FullAnalysis``
+            구조로 반환한다.
     """
 
-    serializer_class = NewsAnalysisSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        market = self.request.query_params.get("market", "KR")
-        obj = (
+    def get(self, request: Request) -> Response:
+        market = request.query_params.get("market", "KR")
+        if market == "ALL":
+            kr = self._latest_for("KR")
+            us = self._latest_for("US")
+            if not kr and not us:
+                raise NotFound("아직 생성된 분석 결과가 없습니다.")
+            anchor = kr or us
+            payload = {
+                "analysis_date": anchor.analysis_date.isoformat()
+                if hasattr(anchor.analysis_date, "isoformat")
+                else str(anchor.analysis_date),
+                "run_duration_ms": anchor.run_duration_ms,
+                "markets": {
+                    "KR": NewsAnalysisSerializer(kr).data if kr else None,
+                    "US": NewsAnalysisSerializer(us).data if us else None,
+                },
+            }
+            return Response({"status": "success", "data": payload})
+
+        obj = self._latest_for(market)
+        if not obj:
+            raise NotFound("아직 생성된 분석 결과가 없습니다.")
+        return Response(
+            {"status": "success", "data": NewsAnalysisSerializer(obj).data}
+        )
+
+    @staticmethod
+    def _latest_for(market: str) -> NewsAnalysis | None:
+        return (
             NewsAnalysis.objects.prefetch_related("sector_analyses__sector")
             .filter(market=market, run_status="COMPLETED")
             .order_by("-analysis_date")
             .first()
         )
-        if not obj:
-            raise NotFound("아직 생성된 분석 결과가 없습니다.")
-        return obj
 
 
-class NewsAnalysisByDateView(generics.RetrieveAPIView):
-    """특정 일자(analysis_date) 분석을 반환한다."""
+class NewsAnalysisByDateView(APIView):
+    """특정 일자(analysis_date) 분석을 반환한다.
 
-    serializer_class = NewsAnalysisSerializer
+    Query params:
+        market: ``KR`` (기본) | ``US`` | ``ALL``.
+    """
+
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        target_date = self.kwargs["analysis_date"]
-        market = self.request.query_params.get("market", "KR")
-        obj = (
+    def get(self, request: Request, analysis_date: str) -> Response:
+        market = request.query_params.get("market", "KR")
+        if market == "ALL":
+            kr = self._for_date(analysis_date, "KR")
+            us = self._for_date(analysis_date, "US")
+            if not kr and not us:
+                raise NotFound(f"해당 일자({analysis_date}) 분석을 찾을 수 없습니다.")
+            anchor = kr or us
+            payload = {
+                "analysis_date": anchor.analysis_date.isoformat()
+                if hasattr(anchor.analysis_date, "isoformat")
+                else str(anchor.analysis_date),
+                "run_duration_ms": anchor.run_duration_ms,
+                "markets": {
+                    "KR": NewsAnalysisSerializer(kr).data if kr else None,
+                    "US": NewsAnalysisSerializer(us).data if us else None,
+                },
+            }
+            return Response({"status": "success", "data": payload})
+
+        obj = self._for_date(analysis_date, market)
+        if not obj:
+            raise NotFound(f"해당 일자({analysis_date}) 분석을 찾을 수 없습니다.")
+        return Response(
+            {"status": "success", "data": NewsAnalysisSerializer(obj).data}
+        )
+
+    @staticmethod
+    def _for_date(analysis_date: str, market: str) -> NewsAnalysis | None:
+        return (
             NewsAnalysis.objects.prefetch_related("sector_analyses__sector")
-            .filter(analysis_date=target_date, market=market)
+            .filter(analysis_date=analysis_date, market=market)
             .order_by("-engine_type")
             .first()
         )
-        if not obj:
-            raise NotFound(f"해당 일자({target_date}) 분석을 찾을 수 없습니다.")
-        return obj
 
 
 class NewsAnalysisRunView(APIView):
@@ -153,7 +204,29 @@ async def _authenticate_async(request: HttpRequest):
 
 @sync_to_async(thread_sensitive=True)
 def _persist_complete_payload(target_date: str, market: str, payload: dict) -> None:
-    """SSE complete 페이로드를 NewsAnalysis/NewsSectorAnalysis에 저장한다."""
+    """SSE complete 페이로드를 영속화한다.
+
+    market='ALL' 인 경우 payload['markets'] 안의 KR/US 두 시장을 각각 단일 시장
+    처리로 위임한다. 단일 시장 호출은 기존 평면 구조 그대로 처리.
+    """
+    if "markets" in payload and isinstance(payload["markets"], dict):
+        run_duration_ms = payload.get("run_duration_ms")
+        for mkt, market_payload in payload["markets"].items():
+            if not isinstance(market_payload, dict):
+                continue
+            _persist_one_market(target_date, mkt, market_payload, run_duration_ms)
+        return
+
+    _persist_one_market(target_date, market, payload, payload.get("run_duration_ms"))
+
+
+def _persist_one_market(
+    target_date: str,
+    market: str,
+    payload: dict,
+    run_duration_ms: int | None,
+) -> None:
+    """단일 NewsAnalysis row 와 NewsSectorAnalysis 들을 update_or_create."""
     sector_analyses = payload.get("sector_analyses") or {}
     counts = payload.get("sector_article_counts") or {}
     signals = payload.get("sector_signals") or {}
@@ -174,7 +247,7 @@ def _persist_complete_payload(target_date: str, market: str, payload: dict) -> N
                 "sector_stocks": stocks_raw,
                 "timings": payload.get("timings", {}),
             },
-            "run_duration_ms": payload.get("run_duration_ms"),
+            "run_duration_ms": run_duration_ms,
             "error_message": "",
         },
     )
@@ -230,11 +303,15 @@ async def news_analysis_run_stream(request: HttpRequest):
     target_date = body.get("target_date") or str(date.today())
     market = body.get("market", "KR")
 
-    sectors = await sync_to_async(list, thread_sensitive=True)(
-        MarketSector.objects.filter(is_active=True, market__in=[market, "ALL"])
-        .order_by("display_order")
-        .values_list("sector_name_ko", flat=True)
-    )
+    if market == "ALL":
+        # market=ALL 은 ai_service 에서 KR/US 각자 default_sectors_for() 로 결정
+        sectors: list[str] = []
+    else:
+        sectors = await sync_to_async(list, thread_sensitive=True)(
+            MarketSector.objects.filter(is_active=True, market__in=[market, "ALL"])
+            .order_by("display_order")
+            .values_list("sector_name_ko", flat=True)
+        )
 
     async def event_stream():
         ai_url = f"{settings.AI_SERVICE_URL}/news/analyze/stream"

@@ -1,3 +1,8 @@
+# backend/apps/news/tasks.py
+"""뉴스 분석 비동기 태스크."""
+
+from __future__ import annotations
+
 import logging
 import time
 from datetime import date
@@ -24,8 +29,38 @@ def run_daily_news_analysis(
     sectors: list[str] | None = None,
     engine: str = "langgraph",
 ) -> dict:
-    """매일 08:00 KST 실행 — 멀티-섹터 뉴스 분석 후 DB 저장."""
+    """매일 08:00 KST 실행 — 멀티-섹터 뉴스 분석 후 DB 저장.
+
+    Args:
+        target_date: 분석 대상 일자 ``YYYY-MM-DD``. 미지정 시 오늘.
+        market: ``KR`` / ``US`` / ``ALL``. ``ALL`` 인 경우 KR 과 US 를 순차 실행한다.
+        sectors: 분석 대상 섹터 키 목록. ``ALL`` 인 경우 무시되며 시장별 기본 섹터를
+            ai_service 가 결정한다.
+        engine: 그래프 엔진 식별자. 현재는 ``langgraph`` 만 지원.
+
+    Returns:
+        ``ALL`` 인 경우 ``{"results": [{market, analysis_id, run_duration_ms}, ...]}``,
+        단일 시장인 경우 ``{"analysis_id": int, "run_duration_ms": int}``.
+    """
     target_date = target_date or str(date.today())
+
+    if market == "ALL":
+        results = []
+        for mkt in ("KR", "US"):
+            results.append(_run_one_market(target_date, mkt, None, engine, self))
+        return {"results": results}
+
+    return _run_one_market(target_date, market, sectors, engine, self)
+
+
+def _run_one_market(
+    target_date: str,
+    market: str,
+    sectors: list[str] | None,
+    engine: str,
+    task,
+) -> dict:
+    """단일 시장 1회 분석 — ai_service 비스트리밍 호출 + DB 저장."""
     sectors = sectors or list(
         MarketSector.objects.filter(is_active=True, market__in=[market, "ALL"])
         .order_by("display_order")
@@ -60,8 +95,8 @@ def run_daily_news_analysis(
         analysis_obj.error_message = str(exc)
         analysis_obj.run_duration_ms = elapsed_ms
         analysis_obj.save()
-        logger.error("뉴스 분석 태스크 실패: %s", exc)
-        raise self.retry(exc=exc)
+        logger.error("[market=%s] 뉴스 분석 태스크 실패: %s", market, exc)
+        raise task.retry(exc=exc)
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     signals = data.get("sector_signals", {}) or {}
@@ -108,4 +143,8 @@ def run_daily_news_analysis(
         )
 
     logger.info("뉴스 분석 완료: %s %s (%d ms)", target_date, market, elapsed_ms)
-    return {"analysis_id": analysis_obj.id, "run_duration_ms": elapsed_ms}
+    return {
+        "market": market,
+        "analysis_id": analysis_obj.id,
+        "run_duration_ms": elapsed_ms,
+    }
