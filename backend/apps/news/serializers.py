@@ -14,7 +14,15 @@ class NewsSectorAnalysisSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NewsSectorAnalysis
-        fields = ["id", "sector_name_ko", "analysis_text", "article_count"]
+        fields = [
+            "id",
+            "sector_name_ko",
+            "analysis_text",
+            "article_count",
+            "investment_signal",
+            "investment_signal_raw",
+            "recommended_stocks",
+        ]
 
 
 class NewsAnalysisSerializer(serializers.ModelSerializer):

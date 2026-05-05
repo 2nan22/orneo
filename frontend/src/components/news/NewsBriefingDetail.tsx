@@ -513,7 +513,17 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                     </p>
                   );
                 }
-                return <SectorMarkdown text={active.analysis_text} />;
+                return (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[11px] text-[var(--color-text-sub)]">
+                      signal: {active.investment_signal} · 추천:{" "}
+                      {active.recommended_stocks.length > 0
+                        ? active.recommended_stocks.map((s) => s.name).join(", ")
+                        : "(없음)"}
+                    </p>
+                    <SectorMarkdown text={active.analysis_text} />
+                  </div>
+                );
               })()}
             </Card>
           )}

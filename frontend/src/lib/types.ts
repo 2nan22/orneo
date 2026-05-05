@@ -104,11 +104,21 @@ export type Goal = {
   created_at: string;
 };
 
+export type RecommendedStock = {
+  ticker: string;
+  name: string;
+};
+
+export type InvestmentSignal = 1 | 2 | 3 | 4 | 5;
+
 export type NewsSectorAnalysis = {
   id: number;
   sector_name_ko: string;
   analysis_text: string;
   article_count: number;
+  investment_signal: InvestmentSignal;
+  investment_signal_raw: InvestmentSignal;
+  recommended_stocks: RecommendedStock[];
 };
 
 export type NewsAnalysisRunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
