@@ -627,15 +627,14 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                 }
                 return (
                   <div className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
                       <SignalIndicator
                         signal={active.investment_signal}
                         size="md"
-                        className="sm:w-1/3"
                       />
                       <StockRecommendationChips
                         stocks={active.recommended_stocks}
-                        className="sm:flex-1"
+                        className="flex-1"
                       />
                     </div>
                     <SectorMarkdown text={active.analysis_text} />

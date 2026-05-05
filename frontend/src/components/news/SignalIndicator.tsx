@@ -34,26 +34,22 @@ export default function SignalIndicator({
 }: Props) {
   const color = SIGNAL_VAR[signal];
   const label = SIGNAL_LABELS[signal];
-  const barH = size === "sm" ? "h-1" : "h-1.5";
   const labelText = size === "sm" ? "text-[10px]" : "text-[11px]";
+  const barH = size === "sm" ? "h-2" : "h-2.5";
+  const barW = size === "sm" ? "w-1" : "w-1.5";
 
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex items-center gap-2 ${className}`}>
       {showLabel && (
-        <div className="flex items-center justify-between gap-2">
-          <span className={`font-bold ${labelText}`} style={{ color }}>
-            {label}
-          </span>
-          <span className={`${labelText} text-[var(--color-text-sub)]`}>
-            {signal}/5
-          </span>
-        </div>
+        <span className={`font-extrabold ${labelText}`} style={{ color }}>
+          {label}
+        </span>
       )}
       <div className="flex gap-0.5" aria-hidden="true">
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className={`flex-1 rounded-sm ${barH}`}
+            className={`rounded-sm ${barH} ${barW}`}
             style={{
               backgroundColor:
                 i <= signal ? color : "var(--color-border)",
