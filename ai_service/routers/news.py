@@ -29,6 +29,8 @@ class NewsAnalyzeResponse(BaseModel):
     sector_analyses: dict[str, str]
     sector_article_counts: dict[str, int]
     sector_articles_meta: dict[str, list[dict]] = {}
+    sector_signals: dict[str, int] = {}
+    sector_stocks: dict[str, list[str]] = {}
     timings: dict[str, Any] = {}
     run_duration_ms: int
 
@@ -43,6 +45,8 @@ def _initial_state(req: NewsAnalyzeRequest) -> AgentState:
         "sector_articles_meta": {},
         "sector_article_counts": {},
         "sector_analyses": {},
+        "sector_signals": {},
+        "sector_stocks": {},
         "overall_analysis": "",
         "error_count": 0,
         "timings": {},
@@ -67,6 +71,8 @@ async def analyze_news(req: NewsAnalyzeRequest) -> NewsAnalyzeResponse:
         sector_analyses=result["sector_analyses"],
         sector_article_counts=result.get("sector_article_counts", {}),
         sector_articles_meta=result.get("sector_articles_meta", {}),
+        sector_signals=result.get("sector_signals", {}),
+        sector_stocks=result.get("sector_stocks", {}),
         timings=result.get("timings", {}),
         run_duration_ms=elapsed_ms,
     )
@@ -125,6 +131,8 @@ async def analyze_news_stream(req: NewsAnalyzeRequest) -> StreamingResponse:
                     "sector_analyses": final_state.get("sector_analyses", {}),
                     "sector_article_counts": final_state.get("sector_article_counts", {}),
                     "sector_articles_meta": final_state.get("sector_articles_meta", {}),
+                    "sector_signals": final_state.get("sector_signals", {}),
+                    "sector_stocks": final_state.get("sector_stocks", {}),
                     "timings": final_state.get("timings", {}),
                     "run_duration_ms": run_ms,
                 },
