@@ -11,16 +11,26 @@ import PageContainer from "@/components/ui/PageContainer";
 import StreamingSectorCard, {
   type StreamStatus,
 } from "@/components/news/StreamingSectorCard";
+import MarketToggle from "@/components/news/MarketToggle";
+import SectorSignalCard from "@/components/news/SectorSignalCard";
 import { api } from "@/lib/api";
 import { readSSE } from "@/lib/sse";
 import { useToast } from "@/contexts/ToastContext";
-import type { FullAnalysis, MarketCode, NewsAnalysis } from "@/lib/types";
+import type {
+  FullAnalysis,
+  InvestmentSignal,
+  MarketCode,
+  NewsAnalysis,
+  RecommendedStock,
+} from "@/lib/types";
 
 type SectorStream = {
   text: string;
   status: StreamStatus;
   articleCount?: number;
   elapsedMs?: number;
+  signal?: InvestmentSignal;
+  stocks?: RecommendedStock[];
 };
 
 type GraphStartEv = {
@@ -45,8 +55,6 @@ type TokenEv = {
   text?: string;
 };
 type ErrorEv = { message?: string; market?: MarketCode };
-
-const MARKETS: readonly MarketCode[] = ["KR", "US"] as const;
 
 interface Props {
   /** 특정 날짜를 강제할 경우 (없으면 latest) */
@@ -414,28 +422,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
             📰 시장 브리핑
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1" role="tablist" aria-label="시장 선택">
-            {MARKETS.map((m) => {
-              const isActive = activeMarket === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveMarket(m)}
-                  className={`rounded-[var(--radius-md)] px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    isActive
-                      ? "bg-[var(--color-primary)] text-white"
-                      : "border border-[var(--color-border)] text-[var(--color-text-sub)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                  }`}
-                >
-                  {m === "KR" ? "🇰🇷 KR" : "🇺🇸 US"}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handlePrevDate}
@@ -475,19 +462,21 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
         </div>
       </header>
 
+      <div className="mb-4">
+        <MarketToggle value={activeMarket} onChange={setActiveMarket} />
+      </div>
+
       {streamingActive && (
         <div className="mb-4 flex flex-col gap-3">
           <Card padding="md" variant="outlined">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[var(--color-text)]">
-                실시간 분석 — {activeMarket}
-              </h2>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-bold text-[var(--color-text)]">실시간 분석</h2>
               <span className="text-[10px] text-[var(--color-text-sub)]">
                 KR/US 가 동시에 진행되며 토글로 전환됩니다.
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col gap-3">
               {activeSectors.map((name) => {
                 const s = activeStreamSectors[name] ?? {
                   text: "",
@@ -501,6 +490,8 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                     status={s.status}
                     articleCount={s.articleCount}
                     elapsedMs={s.elapsedMs}
+                    signal={s.signal}
+                    stocks={s.stocks}
                   />
                 );
               })}
@@ -551,7 +542,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
         </Card>
       ) : activeAnalysis ? (
         <div className="flex flex-col gap-4">
-          {/* 종합 요약 */}
+          {/* 종합 요약 + 섹터별 시그널 그리드 */}
           <Card padding="md">
             <h2 className="mb-2 text-sm font-bold text-[var(--color-text)]">
               종합 요약 — {activeMarket}
@@ -561,6 +552,24 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
             ) : (
               <p className="text-sm text-[var(--color-text-sub)]">(요약이 비어 있습니다)</p>
             )}
+
+            {activeAnalysis.sector_analyses.length > 0 && (
+              <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+                <p className="mb-2 text-xs font-bold text-[var(--color-text)]">
+                  💡 섹터별 투자 시그널 + 추천 종목
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {activeAnalysis.sector_analyses.map((s) => (
+                    <SectorSignalCard
+                      key={s.id}
+                      sector={s}
+                      onClick={() => setActiveSectorId(s.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {activeAnalysis.run_duration_ms !== null && (
               <p className="mt-3 text-[10px] text-[var(--color-text-sub)]">
                 생성 소요: {(activeAnalysis.run_duration_ms / 1000).toFixed(1)}s · 엔진:{" "}
@@ -596,7 +605,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                           title={isEmpty ? "수집된 기사가 없습니다" : undefined}
                         >
                           {s.sector_name_ko}
-                          <span className="ml-1.5 text-[10px] opacity-70">{s.article_count}</span>
+                          <span className="ml-2 text-[10px] opacity-70">{s.article_count}</span>
                         </button>
                       </li>
                     );
@@ -614,17 +623,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                     </p>
                   );
                 }
-                return (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-[11px] text-[var(--color-text-sub)]">
-                      signal: {active.investment_signal} · 추천:{" "}
-                      {active.recommended_stocks.length > 0
-                        ? active.recommended_stocks.map((s) => s.name).join(", ")
-                        : "(없음)"}
-                    </p>
-                    <SectorMarkdown text={active.analysis_text} />
-                  </div>
-                );
+                return <SectorMarkdown text={active.analysis_text} />;
               })()}
             </Card>
           )}

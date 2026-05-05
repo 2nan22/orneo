@@ -38,9 +38,17 @@
 
   /* ─── 배경 확장 ─── */
   --color-bg-subtle: #f8fafc;
+  --color-bg-soft:   #f8fafc;
   --color-slate-50:  #f8fafc;
   --color-slate-100: #f1f5f9;
   --color-slate-500: #64748b;
+
+  /* ─── 시그널 색상 5단계 (적극 매도 → 적극 매수) ─── */
+  --color-signal-1: #dc2626;
+  --color-signal-2: #f97316;
+  --color-signal-3: #64748b;
+  --color-signal-4: #3b82f6;
+  --color-signal-5: #1d4ed8;
 
   /* ─── Dark mode 예약 (미구현) ─── */
   /* @media (prefers-color-scheme: dark) { :root { ... } } */
