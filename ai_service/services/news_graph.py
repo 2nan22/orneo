@@ -6,10 +6,17 @@ import os
 import time
 from typing import Any, TypedDict
 
+from langchain_core.callbacks.manager import adispatch_custom_event
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from tavily import TavilyClient
+
+# NOTE: LangGraph 0.x 시점 기준 ``dispatch_custom_event`` 는 langgraph.types 가 아닌
+# langchain_core.callbacks.manager 에 위치한다. 비동기 노드 내부에서는 비동기 변종인
+# ``adispatch_custom_event`` 를 await 해야 ``astream_events(version="v2")`` 의
+# ``on_custom_event`` 로 전달된다. 라이브러리 업그레이드 시 import path 가 바뀔 수
+# 있으므로 검증 결과 (세션 31 꼭지 1) 를 함께 남긴다.
 
 from config import settings
 from services.sector_parser import split_sector_response
@@ -124,7 +131,12 @@ def _make_llm(streaming: bool = False) -> ChatOpenAI:
 
 
 async def multi_search_node(state: AgentState) -> dict:
-    """섹터별 Tavily 검색."""
+    """섹터별 Tavily 검색 + 진행 상황 custom event emit.
+
+    각 섹터 검색이 끝날 때마다 ``adispatch_custom_event("search_result", ...)`` 로
+    LangGraph custom event 를 발행한다. 호출 측은 ``astream_events(version="v2")``
+    스트림에서 ``on_custom_event`` 로 수신해 SSE 로 변환한다.
+    """
     t0 = time.monotonic()
     market = state["market"]
     sector_articles: dict[str, list[str]] = {}
@@ -151,10 +163,35 @@ async def multi_search_node(state: AgentState) -> dict:
                 {"title": r.get("title", ""), "url": r.get("url", "")}
                 for r in results
             ]
+            top = results[0] if results else None
+            content_top = (top.get("content", "") if top else "") or ""
+            snippet = (content_top[:80] + "…") if content_top else ""
+            await adispatch_custom_event(
+                "search_result",
+                {
+                    "market": market,
+                    "sector": sector,
+                    "snippet": snippet,
+                    "title": (top.get("title", "") if top else ""),
+                    "url": (top.get("url", "") if top else ""),
+                    "count": len(results),
+                },
+            )
         except Exception as exc:
             logger.error("섹터 '%s' 검색 실패: %s", sector, exc)
             sector_articles[sector] = []
             sector_articles_meta[sector] = []
+            await adispatch_custom_event(
+                "search_result",
+                {
+                    "market": market,
+                    "sector": sector,
+                    "snippet": "",
+                    "title": "",
+                    "url": "",
+                    "count": 0,
+                },
+            )
 
     total = sum(len(v) for v in sector_articles.values())
     elapsed_ms = int((time.monotonic() - t0) * 1000)
