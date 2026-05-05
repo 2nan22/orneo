@@ -12,6 +12,7 @@ from langgraph.graph import END, StateGraph
 from tavily import TavilyClient
 
 from config import settings
+from services.sector_parser import split_sector_response
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,21 @@ SECTOR_ANALYZE_SYSTEM = """\
    `## Risk Factors`. 다른 헤더·이모지·머리말·맺음말을 절대 추가하지 않는다.
 2. 각 섹션은 2~4문장의 짧은 단락 1개 또는 3~5개의 불릿 리스트(`- `)로 한정한다.
 3. 수치·종목명·날짜는 기사 본문에 등장한 것만 인용한다. 추측·미확인 사실 금지.
-4. 마지막 줄은 빈 줄 없이 끝낸다. 코드 펜스를 사용하지 않는다.
-5. 기사가 0건이면 세 섹션 모두 "수집된 기사가 없어 분석을 생성할 수 없습니다." 한 줄로 채운다.
+4. 마지막 섹션 뒤에 반드시 다음 형식의 JSON 블록을 추가한다:
+
+```json
+{"investment_signal": <1-5>, "recommended_stocks": ["종목1", "종목2", "종목3"]}
+```
+
+   - investment_signal: 1=적극 매도, 2=비중 축소, 3=중립, 4=비중 확대, 5=적극 매수.
+     기사가 0건이거나 판단 불가 시 3 (중립).
+   - recommended_stocks: 본문에서 언급된 상장 종목명만 인용한다. 한국 시장이면
+     한글 정식명(예: "삼성전자"), 미국 시장이면 한글 또는 영문 회사명. 최대 5개.
+     기사가 0건이면 빈 배열.
+
+5. JSON 블록 외 추가 코드 펜스는 금지. 마지막 줄은 빈 줄 없이 끝낸다.
+6. 기사가 0건이면 세 섹션 모두 "수집된 기사가 없어 분석을 생성할 수 없습니다." 로 채우고,
+   JSON 은 `{"investment_signal": 3, "recommended_stocks": []}` 로 한다.
 """
 
 AGGREGATE_SYSTEM = """\
@@ -40,18 +54,21 @@ AGGREGATE_SYSTEM = """\
 """
 
 KR_SECTOR_KEYWORDS: dict[str, str] = {
-    "반도체": "반도체 DRAM 낸드 삼성전자 SK하이닉스",
-    "AI":     "AI 인공지능 네이버 카카오 LG AI연구원",
-    "조선":   "조선 해운 현대중공업 삼성중공업 한화오션",
-    "원자재": "원자재 철강 포스코 구리 리튬",
-    "에너지": "에너지 한국전력 SK에너지 발전 원전",
-    "금융":   "금융 은행 KB 신한 하나 증시",
+    "반도체":      "반도체 DRAM 낸드 삼성전자 SK하이닉스",
+    "AI":          "AI 인공지능 네이버 카카오 LG AI연구원",
+    "자동차":      "자동차 현대차 기아 하이브리드 전기차",
+    "조선":        "조선 해운 현대중공업 삼성중공업 한화오션 LNG",
+    "제약/바이오": "제약 바이오 셀트리온 삼성바이오로직스 신약",
+    "에너지":      "에너지 한국전력 SK에너지 발전 원전 SMR",
+    "금융":        "금융 은행 KB 신한 하나 증시 밸류업",
 }
 US_SECTOR_KEYWORDS: dict[str, str] = {
-    "반도체": "semiconductor chip TSMC NVIDIA AMD",
-    "AI":     "AI artificial intelligence OpenAI Google",
-    "에너지": "energy oil gas Exxon Chevron",
-    "금융":   "finance banking JPMorgan Goldman Fed",
+    "빅테크":     "big tech Apple Microsoft Alphabet Meta",
+    "AI/반도체":  "semiconductor chip TSMC NVIDIA AMD AI",
+    "전기차":     "EV electric vehicle Tesla Rivian Lucid BYD",
+    "헬스케어":   "healthcare biotech Eli Lilly Novo Nordisk GLP-1",
+    "에너지":     "energy oil gas Exxon Chevron utility",
+    "금융":       "finance banking JPMorgan Goldman Fed",
 }
 DEFAULT_SECTORS = list(KR_SECTOR_KEYWORDS.keys())
 
@@ -65,6 +82,8 @@ class AgentState(TypedDict):
     sector_articles_meta: dict[str, list[dict]]
     sector_article_counts: dict[str, int]
     sector_analyses: dict[str, str]
+    sector_signals: dict[str, int]
+    sector_stocks: dict[str, list[str]]
     overall_analysis: str
     error_count: int
     timings: dict[str, Any]
@@ -135,9 +154,11 @@ def _make_sector_analyze_node(streaming: bool):
     """sector_analyze 노드 함수를 streaming 플래그 closure로 생성."""
 
     async def sector_analyze_node(state: AgentState) -> dict:
-        """섹터별 분석 보고서 생성."""
+        """섹터별 분석 보고서 + 시그널/종목 메타 추출."""
         llm = _make_llm(streaming=streaming)
         sector_analyses: dict[str, str] = {}
+        sector_signals: dict[str, int] = {}
+        sector_stocks: dict[str, list[str]] = {}
         sector_ms: dict[str, int] = {}
         for sector, articles in state["sector_articles"].items():
             text = "\n\n---\n\n".join(articles) if articles else "검색 결과 없음."
@@ -154,7 +175,10 @@ def _make_sector_analyze_node(streaming: bool):
                     ],
                     config={"tags": [f"sector:{sector}"], "run_name": f"sector_llm:{sector}"},
                 )
-                sector_analyses[sector] = resp.content
+                analysis_text, meta = split_sector_response(resp.content)
+                sector_analyses[sector] = analysis_text
+                sector_signals[sector] = meta["investment_signal_raw"]
+                sector_stocks[sector] = meta["recommended_stock_names"]
             except Exception as exc:
                 logger.warning("섹터 '%s' LLM 분석 실패, fallback 반환: %s", sector, exc)
                 sector_analyses[sector] = (
@@ -165,10 +189,14 @@ def _make_sector_analyze_node(streaming: bool):
                     "## Risk Factors\n"
                     "분석 결과 신뢰성이 낮으므로 직접 출처 기사를 확인하시기 바랍니다."
                 )
+                sector_signals[sector] = 3
+                sector_stocks[sector] = []
             finally:
                 sector_ms[sector] = int((time.monotonic() - t0) * 1000)
         return {
             "sector_analyses": sector_analyses,
+            "sector_signals": sector_signals,
+            "sector_stocks": sector_stocks,
             "timings": {**state.get("timings", {}), "sector_analyze_ms": sector_ms},
         }
 

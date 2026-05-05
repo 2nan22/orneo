@@ -23,6 +23,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from apps.news.models import MarketSector, NewsAnalysis, NewsSectorAnalysis
 from apps.news.serializers import NewsAnalysisSerializer
+from apps.news.services.signal_adjustor import apply_metric_adjustment
+from apps.news.services.stock_matcher import match_stocks
 from apps.news.tasks import run_daily_news_analysis
 
 logger = logging.getLogger(__name__)
@@ -154,6 +156,8 @@ def _persist_complete_payload(target_date: str, market: str, payload: dict) -> N
     """SSE complete 페이로드를 NewsAnalysis/NewsSectorAnalysis에 저장한다."""
     sector_analyses = payload.get("sector_analyses") or {}
     counts = payload.get("sector_article_counts") or {}
+    signals = payload.get("sector_signals") or {}
+    stocks_raw = payload.get("sector_stocks") or {}
 
     analysis_obj, _ = NewsAnalysis.objects.update_or_create(
         analysis_date=target_date,
@@ -166,6 +170,8 @@ def _persist_complete_payload(target_date: str, market: str, payload: dict) -> N
                 "sector_analyses": sector_analyses,
                 "sector_article_counts": counts,
                 "sector_articles_meta": payload.get("sector_articles_meta", {}),
+                "sector_signals": signals,
+                "sector_stocks": stocks_raw,
                 "timings": payload.get("timings", {}),
             },
             "run_duration_ms": payload.get("run_duration_ms"),
@@ -178,18 +184,27 @@ def _persist_complete_payload(target_date: str, market: str, payload: dict) -> N
 
     sector_map = {
         s.sector_name_ko: s
-        for s in MarketSector.objects.filter(sector_name_ko__in=sector_analyses.keys())
+        for s in MarketSector.objects.filter(
+            sector_name_ko__in=sector_analyses.keys(),
+            market__in=[market, "ALL"],
+        )
     }
     for sector_name, analysis_text in sector_analyses.items():
         sector_obj = sector_map.get(sector_name)
         if not sector_obj:
             continue
+        raw_signal = int(signals.get(sector_name, 3))
+        final_signal = apply_metric_adjustment(raw_signal, sector_name, market)
+        matched = match_stocks(stocks_raw.get(sector_name, []), market)
         NewsSectorAnalysis.objects.update_or_create(
             analysis=analysis_obj,
             sector=sector_obj,
             defaults={
                 "analysis_text": analysis_text,
                 "article_count": counts.get(sector_name, 0),
+                "investment_signal_raw": raw_signal,
+                "investment_signal": final_signal,
+                "recommended_stocks": matched,
             },
         )
 

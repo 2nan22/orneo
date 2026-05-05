@@ -105,12 +105,34 @@ class NewsAnalysis(models.Model):
 class NewsSectorAnalysis(models.Model):
     """TBL_NEWS_SECTOR_ANALYSIS — 섹터별 분석 결과."""
 
+    SIGNAL_CHOICES = [
+        (1, "1 - 적극 매도"),
+        (2, "2 - 비중 축소"),
+        (3, "3 - 중립"),
+        (4, "4 - 비중 확대"),
+        (5, "5 - 적극 매수"),
+    ]
+
     analysis = models.ForeignKey(
         NewsAnalysis, on_delete=models.CASCADE, related_name="sector_analyses"
     )
     sector = models.ForeignKey(MarketSector, on_delete=models.PROTECT)
     analysis_text = models.TextField(blank=True)
     article_count = models.IntegerField(default=0)
+    investment_signal_raw = models.PositiveSmallIntegerField(
+        default=3,
+        choices=SIGNAL_CHOICES,
+        help_text="LLM 원본 시그널 (보정 전)",
+    )
+    investment_signal = models.PositiveSmallIntegerField(
+        default=3,
+        choices=SIGNAL_CHOICES,
+        help_text="metric 보정 후 최종 시그널",
+    )
+    recommended_stocks = models.JSONField(
+        default=list,
+        help_text="[{'ticker': '005930', 'name': '삼성전자'}, ...] 마스터 매칭된 종목만 저장",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

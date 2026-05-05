@@ -60,6 +60,11 @@ def translate_langgraph_event(ev: dict[str, Any]) -> bytes | None:
             # overall_analysis 텍스트를 함께 실어 프론트에서 누적값 보정에 사용한다.
             if "sector_analyses" in output:
                 payload["sector_analyses"] = output["sector_analyses"]
+            if "sector_signals" in output:
+                payload["sector_signals"] = output["sector_signals"]
+            # 매칭 전 LLM 원본 종목명 — UI 즉시 표시용 (마스터 매칭은 complete 이후 DB 재조회)
+            if "sector_stocks" in output:
+                payload["sector_stocks_raw"] = output["sector_stocks"]
             if "overall_analysis" in output:
                 payload["full_text"] = output["overall_analysis"]
             if "sector_article_counts" in output:
