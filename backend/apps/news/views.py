@@ -52,47 +52,98 @@ class NewsAnalysisDetailView(generics.RetrieveAPIView):
     queryset = NewsAnalysis.objects.prefetch_related("sector_analyses__sector")
 
 
-class NewsAnalysisLatestView(generics.RetrieveAPIView):
+class NewsAnalysisLatestView(APIView):
     """가장 최근 완료된 뉴스 분석 결과를 반환한다.
 
     Query params:
-        market: KR(기본) | US | ALL.
+        market: ``KR`` (기본) | ``US`` | ``ALL``.
+            ``ALL`` 인 경우 KR/US 양시장의 가장 최근 완료된 row 를 묶은 ``FullAnalysis``
+            구조로 반환한다.
     """
 
-    serializer_class = NewsAnalysisSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        market = self.request.query_params.get("market", "KR")
-        obj = (
+    def get(self, request: Request) -> Response:
+        market = request.query_params.get("market", "KR")
+        if market == "ALL":
+            kr = self._latest_for("KR")
+            us = self._latest_for("US")
+            if not kr and not us:
+                raise NotFound("아직 생성된 분석 결과가 없습니다.")
+            anchor = kr or us
+            payload = {
+                "analysis_date": anchor.analysis_date.isoformat()
+                if hasattr(anchor.analysis_date, "isoformat")
+                else str(anchor.analysis_date),
+                "run_duration_ms": anchor.run_duration_ms,
+                "markets": {
+                    "KR": NewsAnalysisSerializer(kr).data if kr else None,
+                    "US": NewsAnalysisSerializer(us).data if us else None,
+                },
+            }
+            return Response({"status": "success", "data": payload})
+
+        obj = self._latest_for(market)
+        if not obj:
+            raise NotFound("아직 생성된 분석 결과가 없습니다.")
+        return Response(
+            {"status": "success", "data": NewsAnalysisSerializer(obj).data}
+        )
+
+    @staticmethod
+    def _latest_for(market: str) -> NewsAnalysis | None:
+        return (
             NewsAnalysis.objects.prefetch_related("sector_analyses__sector")
             .filter(market=market, run_status="COMPLETED")
             .order_by("-analysis_date")
             .first()
         )
-        if not obj:
-            raise NotFound("아직 생성된 분석 결과가 없습니다.")
-        return obj
 
 
-class NewsAnalysisByDateView(generics.RetrieveAPIView):
-    """특정 일자(analysis_date) 분석을 반환한다."""
+class NewsAnalysisByDateView(APIView):
+    """특정 일자(analysis_date) 분석을 반환한다.
 
-    serializer_class = NewsAnalysisSerializer
+    Query params:
+        market: ``KR`` (기본) | ``US`` | ``ALL``.
+    """
+
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        target_date = self.kwargs["analysis_date"]
-        market = self.request.query_params.get("market", "KR")
-        obj = (
+    def get(self, request: Request, analysis_date: str) -> Response:
+        market = request.query_params.get("market", "KR")
+        if market == "ALL":
+            kr = self._for_date(analysis_date, "KR")
+            us = self._for_date(analysis_date, "US")
+            if not kr and not us:
+                raise NotFound(f"해당 일자({analysis_date}) 분석을 찾을 수 없습니다.")
+            anchor = kr or us
+            payload = {
+                "analysis_date": anchor.analysis_date.isoformat()
+                if hasattr(anchor.analysis_date, "isoformat")
+                else str(anchor.analysis_date),
+                "run_duration_ms": anchor.run_duration_ms,
+                "markets": {
+                    "KR": NewsAnalysisSerializer(kr).data if kr else None,
+                    "US": NewsAnalysisSerializer(us).data if us else None,
+                },
+            }
+            return Response({"status": "success", "data": payload})
+
+        obj = self._for_date(analysis_date, market)
+        if not obj:
+            raise NotFound(f"해당 일자({analysis_date}) 분석을 찾을 수 없습니다.")
+        return Response(
+            {"status": "success", "data": NewsAnalysisSerializer(obj).data}
+        )
+
+    @staticmethod
+    def _for_date(analysis_date: str, market: str) -> NewsAnalysis | None:
+        return (
             NewsAnalysis.objects.prefetch_related("sector_analyses__sector")
-            .filter(analysis_date=target_date, market=market)
+            .filter(analysis_date=analysis_date, market=market)
             .order_by("-engine_type")
             .first()
         )
-        if not obj:
-            raise NotFound(f"해당 일자({target_date}) 분석을 찾을 수 없습니다.")
-        return obj
 
 
 class NewsAnalysisRunView(APIView):
