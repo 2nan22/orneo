@@ -14,7 +14,7 @@ import StreamingSectorCard, {
 import { api } from "@/lib/api";
 import { readSSE } from "@/lib/sse";
 import { useToast } from "@/contexts/ToastContext";
-import type { NewsAnalysis } from "@/lib/types";
+import type { FullAnalysis, MarketCode, NewsAnalysis } from "@/lib/types";
 
 type SectorStream = {
   text: string;
@@ -23,16 +23,30 @@ type SectorStream = {
   elapsedMs?: number;
 };
 
-type GraphStartEv = { sectors?: string[]; target_date?: string; market?: string };
+type GraphStartEv = {
+  sectors?: string[];
+  sectors_by_market?: Partial<Record<MarketCode, string[]>>;
+  target_date?: string;
+  market?: string;
+  markets?: string[];
+};
 type NodeEv = {
   node?: string;
+  market?: MarketCode;
   sector?: string;
   full_text?: string;
   sector_analyses?: Record<string, string>;
   sector_article_counts?: Record<string, number>;
 };
-type TokenEv = { scope?: "sector" | "aggregate"; sector?: string; text?: string };
-type ErrorEv = { message?: string };
+type TokenEv = {
+  scope?: "sector" | "aggregate";
+  market?: MarketCode;
+  sector?: string;
+  text?: string;
+};
+type ErrorEv = { message?: string; market?: MarketCode };
+
+const MARKETS: readonly MarketCode[] = ["KR", "US"] as const;
 
 interface Props {
   /** 특정 날짜를 강제할 경우 (없으면 latest) */
@@ -145,33 +159,45 @@ function SectorMarkdown({ text }: { text: string }) {
   );
 }
 
+const emptySectorMap: Record<MarketCode, Record<string, SectorStream>> = {
+  KR: {},
+  US: {},
+};
+const emptyOverallMap: Record<MarketCode, { text: string; status: StreamStatus }> = {
+  KR: { text: "", status: "pending" },
+  US: { text: "", status: "pending" },
+};
+const emptyOrderMap: Record<MarketCode, string[]> = { KR: [], US: [] };
+
 export default function NewsBriefingDetail({ initialDate }: Props) {
   const router = useRouter();
   const { addToast } = useToast();
-  const [analysis, setAnalysis] = useState<NewsAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
+  const [activeMarket, setActiveMarket] = useState<MarketCode>("KR");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeSectorId, setActiveSectorId] = useState<number | null>(null);
 
-  // 실시간 스트리밍 상태
+  // 실시간 스트리밍 상태 — market 별 분리
   const [streamingActive, setStreamingActive] = useState(false);
-  const [streamSectors, setStreamSectors] = useState<Record<string, SectorStream>>({});
-  const [streamOverall, setStreamOverall] = useState<{ text: string; status: StreamStatus }>({
-    text: "",
-    status: "pending",
-  });
-  const [sectorOrder, setSectorOrder] = useState<string[]>([]);
+  const [streamSectors, setStreamSectors] =
+    useState<Record<MarketCode, Record<string, SectorStream>>>(emptySectorMap);
+  const [streamOverall, setStreamOverall] =
+    useState<Record<MarketCode, { text: string; status: StreamStatus }>>(emptyOverallMap);
+  const [sectorOrder, setSectorOrder] =
+    useState<Record<MarketCode, string[]>>(emptyOrderMap);
 
   const loadAnalysis = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
       const path = initialDate
-        ? `/news/analyses/by-date/${initialDate}/?market=KR`
-        : `/news/analyses/latest/?market=KR`;
-      const res = await api.get<NewsAnalysis>(path);
+        ? `/news/analyses/by-date/${initialDate}/?market=ALL`
+        : `/news/analyses/latest/?market=ALL`;
+      const res = await api.get<FullAnalysis>(path);
       setAnalysis(res);
-      setActiveSectorId(res.sector_analyses[0]?.id ?? null);
+      const current = res.markets[activeMarket] ?? res.markets.KR ?? res.markets.US;
+      setActiveSectorId(current?.sector_analyses[0]?.id ?? null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "분석 결과를 불러오지 못했습니다.";
       setErrorMsg(msg);
@@ -179,29 +205,44 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [initialDate]);
+  }, [initialDate, activeMarket]);
 
   useEffect(() => {
     loadAnalysis();
-  }, [loadAnalysis]);
+    // activeMarket 변경에 의한 재호출은 첫 섹터 선택 보정용 — analysis 자체는 캐시되어 있음
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDate]);
+
+  useEffect(() => {
+    if (!analysis) return;
+    const market = analysis.markets[activeMarket];
+    setActiveSectorId(market?.sector_analyses[0]?.id ?? null);
+  }, [activeMarket, analysis]);
+
+  function resetStreamingState() {
+    setStreamSectors({ KR: {}, US: {} });
+    setSectorOrder({ KR: [], US: [] });
+    setStreamOverall({
+      KR: { text: "", status: "pending" },
+      US: { text: "", status: "pending" },
+    });
+  }
 
   async function handleRegenerate() {
     if (streamingActive) return;
     const targetDate =
       analysis?.analysis_date ?? initialDate ?? new Date().toISOString().slice(0, 10);
-    if (!window.confirm("뉴스 분석을 다시 실행합니다. 약 1~3분 소요됩니다. 계속할까요?")) return;
+    if (!window.confirm("KR/US 양시장 뉴스 분석을 다시 실행합니다. 약 2~5분 소요됩니다. 계속할까요?")) return;
 
     setStreamingActive(true);
-    setStreamSectors({});
-    setSectorOrder([]);
-    setStreamOverall({ text: "", status: "pending" });
+    resetStreamingState();
 
     let res: Response;
     try {
       res = await fetch("/api/v1/news/analyses/run-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ market: "KR", target_date: targetDate }),
+        body: JSON.stringify({ market: "ALL", target_date: targetDate }),
       });
     } catch (err) {
       addToast(err instanceof Error ? err.message : "스트리밍 시작 실패", "error");
@@ -218,7 +259,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
     let lastTokenAt = Date.now();
     let warned = false;
     const watchdog = window.setInterval(() => {
-      if (!warned && Date.now() - lastTokenAt > 30_000) {
+      if (!warned && Date.now() - lastTokenAt > 60_000) {
         warned = true;
         addToast("AI 서비스 응답이 지연되고 있습니다.", "error");
       }
@@ -230,71 +271,97 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
         switch (ev.event) {
           case "graph_start": {
             const data = ev.data as GraphStartEv;
-            const sectors = data.sectors ?? [];
-            setSectorOrder(sectors);
-            setStreamSectors(
+            const sbm: Record<MarketCode, string[]> = {
+              KR: data.sectors_by_market?.KR ?? (data.market === "KR" ? data.sectors ?? [] : []),
+              US: data.sectors_by_market?.US ?? (data.market === "US" ? data.sectors ?? [] : []),
+            };
+            setSectorOrder(sbm);
+            const blank = (xs: string[]): Record<string, SectorStream> =>
               Object.fromEntries(
-                sectors.map((s) => [s, { text: "", status: "pending" as StreamStatus }]),
-              ),
-            );
+                xs.map((s) => [s, { text: "", status: "pending" as StreamStatus }]),
+              );
+            setStreamSectors({ KR: blank(sbm.KR), US: blank(sbm.US) });
             break;
           }
           case "node_start": {
             const data = ev.data as NodeEv;
+            const mkt: MarketCode = data.market ?? activeMarket;
             if (data.node === "sector_analyze_node") {
               setStreamSectors((prev) => {
-                const next: Record<string, SectorStream> = { ...prev };
-                for (const k of Object.keys(next)) {
-                  if (next[k].status === "pending") {
-                    next[k] = { ...next[k], status: "streaming" };
+                const next = { ...prev };
+                const cur = { ...prev[mkt] };
+                for (const k of Object.keys(cur)) {
+                  if (cur[k].status === "pending") {
+                    cur[k] = { ...cur[k], status: "streaming" };
                   }
                 }
+                next[mkt] = cur;
                 return next;
               });
             } else if (data.node === "aggregate_node") {
-              setStreamOverall((prev) => ({ ...prev, status: "streaming" }));
+              setStreamOverall((prev) => ({
+                ...prev,
+                [mkt]: { ...prev[mkt], status: "streaming" },
+              }));
             }
             break;
           }
           case "token": {
             const data = ev.data as TokenEv;
+            const mkt: MarketCode = data.market ?? activeMarket;
             const text = data.text ?? "";
             if (data.scope === "sector" && data.sector) {
               const k = data.sector;
               setStreamSectors((prev) => {
-                const cur = prev[k] ?? { text: "", status: "streaming" as StreamStatus };
+                const cur = prev[mkt][k] ?? {
+                  text: "",
+                  status: "streaming" as StreamStatus,
+                };
                 return {
                   ...prev,
-                  [k]: { ...cur, text: cur.text + text, status: "streaming" },
+                  [mkt]: {
+                    ...prev[mkt],
+                    [k]: { ...cur, text: cur.text + text, status: "streaming" },
+                  },
                 };
               });
             } else if (data.scope === "aggregate") {
               setStreamOverall((prev) => ({
-                text: prev.text + text,
-                status: "streaming",
+                ...prev,
+                [mkt]: {
+                  text: prev[mkt].text + text,
+                  status: "streaming",
+                },
               }));
             }
             break;
           }
           case "node_done": {
             const data = ev.data as NodeEv;
+            const mkt: MarketCode = data.market ?? activeMarket;
             if (data.node === "sector_analyze_node" && data.sector_analyses) {
               const counts = data.sector_article_counts ?? {};
               setStreamSectors((prev) => {
-                const next: Record<string, SectorStream> = { ...prev };
+                const cur = { ...prev[mkt] };
                 for (const [name, full] of Object.entries(data.sector_analyses ?? {})) {
-                  const cur = next[name] ?? { text: "", status: "done" as StreamStatus };
-                  next[name] = {
-                    ...cur,
+                  const prevSec = cur[name] ?? {
+                    text: "",
+                    status: "done" as StreamStatus,
+                  };
+                  cur[name] = {
+                    ...prevSec,
                     text: full,
                     status: "done",
-                    articleCount: counts[name] ?? cur.articleCount,
+                    articleCount: counts[name] ?? prevSec.articleCount,
                   };
                 }
-                return next;
+                return { ...prev, [mkt]: cur };
               });
             } else if (data.node === "aggregate_node" && typeof data.full_text === "string") {
-              setStreamOverall({ text: data.full_text, status: "done" });
+              setStreamOverall((prev) => ({
+                ...prev,
+                [mkt]: { text: data.full_text ?? "", status: "done" },
+              }));
             }
             break;
           }
@@ -305,7 +372,8 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
           }
           case "error": {
             const data = ev.data as ErrorEv;
-            addToast(`분석 실패: ${data.message ?? "알 수 없는 오류"}`, "error");
+            const prefix = data.market ? `[${data.market}] ` : "";
+            addToast(`${prefix}분석 실패: ${data.message ?? "알 수 없는 오류"}`, "error");
             break;
           }
         }
@@ -317,7 +385,6 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
       setStreamingActive(false);
     }
   }
-
 
   const today = new Date().toISOString().slice(0, 10);
   const currentDate = analysis?.analysis_date ?? initialDate ?? today;
@@ -333,16 +400,42 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
     router.push(`/news/${nextDate}`);
   }
 
+  const activeAnalysis: NewsAnalysis | null = analysis?.markets[activeMarket] ?? null;
+  const activeSectors = sectorOrder[activeMarket];
+  const activeStreamSectors = streamSectors[activeMarket];
+  const activeStreamOverall = streamOverall[activeMarket];
+
   return (
     <PageContainer size="lg">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black tracking-[0.22em] text-[#2563EB]">MARKET BRIEFING</p>
           <h1 className="mt-1 text-2xl font-black tracking-[-0.05em] text-[#0B132B]">
-            📰 KR 시장 브리핑
+            📰 시장 브리핑
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex gap-1" role="tablist" aria-label="시장 선택">
+            {MARKETS.map((m) => {
+              const isActive = activeMarket === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveMarket(m)}
+                  className={`rounded-[var(--radius-md)] px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? "bg-[var(--color-primary)] text-white"
+                      : "border border-[var(--color-border)] text-[var(--color-text-sub)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  }`}
+                >
+                  {m === "KR" ? "🇰🇷 KR" : "🇺🇸 US"}
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
             onClick={handlePrevDate}
@@ -386,18 +479,23 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
         <div className="mb-4 flex flex-col gap-3">
           <Card padding="md" variant="outlined">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[var(--color-text)]">실시간 분석</h2>
+              <h2 className="text-sm font-bold text-[var(--color-text)]">
+                실시간 분석 — {activeMarket}
+              </h2>
               <span className="text-[10px] text-[var(--color-text-sub)]">
-                노드별 진행 상황을 실시간으로 표시합니다.
+                KR/US 가 동시에 진행되며 토글로 전환됩니다.
               </span>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {sectorOrder.map((name) => {
-                const s = streamSectors[name] ?? { text: "", status: "pending" as StreamStatus };
+              {activeSectors.map((name) => {
+                const s = activeStreamSectors[name] ?? {
+                  text: "",
+                  status: "pending" as StreamStatus,
+                };
                 return (
                   <StreamingSectorCard
-                    key={name}
+                    key={`${activeMarket}:${name}`}
                     name={name}
                     text={s.text}
                     status={s.status}
@@ -412,17 +510,17 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
               <div className="mb-1 flex items-center gap-2">
                 <span className="text-xs font-bold text-[var(--color-text)]">종합 요약</span>
                 <span className="text-[10px] text-[var(--color-text-sub)]">
-                  {streamOverall.status === "pending"
+                  {activeStreamOverall.status === "pending"
                     ? "대기 중…"
-                    : streamOverall.status === "streaming"
+                    : activeStreamOverall.status === "streaming"
                       ? "작성 중…"
                       : "완료"}
                 </span>
               </div>
-              {streamOverall.text ? (
+              {activeStreamOverall.text ? (
                 <p className="text-[13px] leading-relaxed text-[var(--color-text)]">
-                  {streamOverall.text}
-                  {streamOverall.status === "streaming" && (
+                  {activeStreamOverall.text}
+                  {activeStreamOverall.status === "streaming" && (
                     <span className="ml-1 inline-block h-3 w-[2px] animate-pulse bg-[var(--color-primary)] align-middle" />
                   )}
                 </p>
@@ -451,29 +549,32 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
             우측 상단 “다시 생성” 버튼으로 분석을 직접 실행할 수 있습니다.
           </p>
         </Card>
-      ) : analysis ? (
+      ) : activeAnalysis ? (
         <div className="flex flex-col gap-4">
           {/* 종합 요약 */}
           <Card padding="md">
-            <h2 className="mb-2 text-sm font-bold text-[var(--color-text)]">종합 요약</h2>
-            {analysis.overall_analysis ? (
-              <SectorMarkdown text={analysis.overall_analysis} />
+            <h2 className="mb-2 text-sm font-bold text-[var(--color-text)]">
+              종합 요약 — {activeMarket}
+            </h2>
+            {activeAnalysis.overall_analysis ? (
+              <SectorMarkdown text={activeAnalysis.overall_analysis} />
             ) : (
               <p className="text-sm text-[var(--color-text-sub)]">(요약이 비어 있습니다)</p>
             )}
-            {analysis.run_duration_ms !== null && (
+            {activeAnalysis.run_duration_ms !== null && (
               <p className="mt-3 text-[10px] text-[var(--color-text-sub)]">
-                생성 소요: {(analysis.run_duration_ms / 1000).toFixed(1)}s · 엔진: {analysis.engine_type}
+                생성 소요: {(activeAnalysis.run_duration_ms / 1000).toFixed(1)}s · 엔진:{" "}
+                {activeAnalysis.engine_type}
               </p>
             )}
           </Card>
 
           {/* 섹터 탭 */}
-          {analysis.sector_analyses.length > 0 && (
+          {activeAnalysis.sector_analyses.length > 0 && (
             <Card padding="md">
               <div className="-mx-4 mb-3 overflow-x-auto px-4 pl-1">
                 <ul className="flex min-w-max gap-2">
-                  {analysis.sector_analyses.map((s) => {
+                  {activeAnalysis.sector_analyses.map((s) => {
                     const isActive = activeSectorId === s.id;
                     const isEmpty = s.article_count === 0;
                     let chipClass: string;
@@ -504,7 +605,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
               </div>
 
               {(() => {
-                const active = analysis.sector_analyses.find((s) => s.id === activeSectorId);
+                const active = activeAnalysis.sector_analyses.find((s) => s.id === activeSectorId);
                 if (!active) return null;
                 if (active.article_count === 0) {
                   return (
@@ -532,7 +633,14 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
             출처: Tavily 검색 결과 · 본 자료는 교육·참고 목적이며 투자 권유가 아닙니다.
           </p>
         </div>
-      ) : null}
+      ) : (
+        <Card variant="outlined" padding="md">
+          <p className="text-sm text-[var(--color-text-sub)]">
+            {activeMarket} 시장의 분석 데이터가 아직 없습니다. 우측 상단 “다시 생성” 으로 양시장 분석을
+            실행하세요.
+          </p>
+        </Card>
+      )}
     </PageContainer>
   );
 }

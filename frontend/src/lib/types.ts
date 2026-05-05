@@ -137,13 +137,8 @@ export type NewsAnalysis = {
   created_at: string;
 };
 
-/** market="ALL" 호출 결과의 단일 시장 부분 */
-export type MarketAnalysis = {
-  market: MarketCode;
-  overall_analysis: string;
-  sector_analyses: NewsSectorAnalysis[];
-  run_duration_ms: number | null;
-};
+/** market="ALL" 호출 결과의 단일 시장 부분 — NewsAnalysis 전체 페이로드. */
+export type MarketAnalysis = NewsAnalysis;
 
 /** market="ALL" GET / SSE complete 응답 — KR/US 두 시장을 함께 표현 */
 export type FullAnalysis = {
