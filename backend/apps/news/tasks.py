@@ -7,6 +7,8 @@ from celery import shared_task
 from django.conf import settings
 
 from apps.news.models import MarketSector, NewsAnalysis, NewsSectorAnalysis
+from apps.news.services.signal_adjustor import apply_metric_adjustment
+from apps.news.services.stock_matcher import match_stocks
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +64,17 @@ def run_daily_news_analysis(
         raise self.retry(exc=exc)
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
+    signals = data.get("sector_signals", {}) or {}
+    stocks_raw = data.get("sector_stocks", {}) or {}
+
     analysis_obj.run_status = "COMPLETED"
     analysis_obj.overall_analysis = data["overall_analysis"]
     analysis_obj.raw_result = {
         "sector_analyses": data["sector_analyses"],
         "sector_article_counts": data.get("sector_article_counts", {}),
         "sector_articles_meta": data.get("sector_articles_meta", {}),
+        "sector_signals": signals,
+        "sector_stocks": stocks_raw,
         "timings": data.get("timings", {}),
     }
     analysis_obj.run_duration_ms = elapsed_ms
@@ -75,20 +82,30 @@ def run_daily_news_analysis(
 
     sector_map = {
         s.sector_name_ko: s
-        for s in MarketSector.objects.filter(sector_name_ko__in=sectors)
+        for s in MarketSector.objects.filter(
+            sector_name_ko__in=sectors,
+            market__in=[market, "ALL"],
+        )
     }
     counts = data.get("sector_article_counts", {})
     for sector_name, analysis_text in data["sector_analyses"].items():
         sector_obj = sector_map.get(sector_name)
-        if sector_obj:
-            NewsSectorAnalysis.objects.update_or_create(
-                analysis=analysis_obj,
-                sector=sector_obj,
-                defaults={
-                    "analysis_text": analysis_text,
-                    "article_count": counts.get(sector_name, 0),
-                },
-            )
+        if not sector_obj:
+            continue
+        raw_signal = int(signals.get(sector_name, 3))
+        final_signal = apply_metric_adjustment(raw_signal, sector_name, market)
+        matched = match_stocks(stocks_raw.get(sector_name, []), market)
+        NewsSectorAnalysis.objects.update_or_create(
+            analysis=analysis_obj,
+            sector=sector_obj,
+            defaults={
+                "analysis_text": analysis_text,
+                "article_count": counts.get(sector_name, 0),
+                "investment_signal_raw": raw_signal,
+                "investment_signal": final_signal,
+                "recommended_stocks": matched,
+            },
+        )
 
     logger.info("뉴스 분석 완료: %s %s (%d ms)", target_date, market, elapsed_ms)
     return {"analysis_id": analysis_obj.id, "run_duration_ms": elapsed_ms}
