@@ -81,7 +81,18 @@ def translate_langgraph_event(
                 payload["sector_article_counts"] = output["sector_article_counts"]
         return sse("node_done", payload)
 
-    # 2) 토큰 스트림 (Gemma 응답)
+    # 2) 섹터별 검색 결과 진행 (custom event)
+    if etype == "on_custom_event" and name == "search_result":
+        data = ev.get("data") or {}
+        if not isinstance(data, dict):
+            return None
+        payload = dict(data)
+        # multi market 분기에서 호출자가 전달한 market 을 우선 신뢰한다.
+        if market and not payload.get("market"):
+            payload["market"] = market
+        return sse("search_result", payload)
+
+    # 3) 토큰 스트림 (Gemma 응답)
     if etype == "on_chat_model_stream":
         chunk = ev.get("data", {}).get("chunk")
         text = getattr(chunk, "content", "") if chunk is not None else ""
