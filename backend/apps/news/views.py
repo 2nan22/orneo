@@ -153,7 +153,29 @@ async def _authenticate_async(request: HttpRequest):
 
 @sync_to_async(thread_sensitive=True)
 def _persist_complete_payload(target_date: str, market: str, payload: dict) -> None:
-    """SSE complete 페이로드를 NewsAnalysis/NewsSectorAnalysis에 저장한다."""
+    """SSE complete 페이로드를 영속화한다.
+
+    market='ALL' 인 경우 payload['markets'] 안의 KR/US 두 시장을 각각 단일 시장
+    처리로 위임한다. 단일 시장 호출은 기존 평면 구조 그대로 처리.
+    """
+    if "markets" in payload and isinstance(payload["markets"], dict):
+        run_duration_ms = payload.get("run_duration_ms")
+        for mkt, market_payload in payload["markets"].items():
+            if not isinstance(market_payload, dict):
+                continue
+            _persist_one_market(target_date, mkt, market_payload, run_duration_ms)
+        return
+
+    _persist_one_market(target_date, market, payload, payload.get("run_duration_ms"))
+
+
+def _persist_one_market(
+    target_date: str,
+    market: str,
+    payload: dict,
+    run_duration_ms: int | None,
+) -> None:
+    """단일 NewsAnalysis row 와 NewsSectorAnalysis 들을 update_or_create."""
     sector_analyses = payload.get("sector_analyses") or {}
     counts = payload.get("sector_article_counts") or {}
     signals = payload.get("sector_signals") or {}
@@ -174,7 +196,7 @@ def _persist_complete_payload(target_date: str, market: str, payload: dict) -> N
                 "sector_stocks": stocks_raw,
                 "timings": payload.get("timings", {}),
             },
-            "run_duration_ms": payload.get("run_duration_ms"),
+            "run_duration_ms": run_duration_ms,
             "error_message": "",
         },
     )
@@ -230,11 +252,15 @@ async def news_analysis_run_stream(request: HttpRequest):
     target_date = body.get("target_date") or str(date.today())
     market = body.get("market", "KR")
 
-    sectors = await sync_to_async(list, thread_sensitive=True)(
-        MarketSector.objects.filter(is_active=True, market__in=[market, "ALL"])
-        .order_by("display_order")
-        .values_list("sector_name_ko", flat=True)
-    )
+    if market == "ALL":
+        # market=ALL 은 ai_service 에서 KR/US 각자 default_sectors_for() 로 결정
+        sectors: list[str] = []
+    else:
+        sectors = await sync_to_async(list, thread_sensitive=True)(
+            MarketSector.objects.filter(is_active=True, market__in=[market, "ALL"])
+            .order_by("display_order")
+            .values_list("sector_name_ko", flat=True)
+        )
 
     async def event_stream():
         ai_url = f"{settings.AI_SERVICE_URL}/news/analyze/stream"
