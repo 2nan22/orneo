@@ -70,7 +70,23 @@ US_SECTOR_KEYWORDS: dict[str, str] = {
     "에너지":     "energy oil gas Exxon Chevron utility",
     "금융":       "finance banking JPMorgan Goldman Fed",
 }
-DEFAULT_SECTORS = list(KR_SECTOR_KEYWORDS.keys())
+DEFAULT_SECTORS_KR = list(KR_SECTOR_KEYWORDS.keys())
+DEFAULT_SECTORS_US = list(US_SECTOR_KEYWORDS.keys())
+DEFAULT_SECTORS = DEFAULT_SECTORS_KR  # 호환성 유지 (단일 시장 KR 기본)
+
+
+def default_sectors_for(market: str) -> list[str]:
+    """시장 코드에 대응하는 기본 섹터 키 리스트를 반환한다.
+
+    Args:
+        market: ``"KR"`` 또는 ``"US"``. 그 외 값은 KR 으로 폴백.
+
+    Returns:
+        해당 시장의 기본 섹터 한국어 키 리스트.
+    """
+    if market == "US":
+        return DEFAULT_SECTORS_US
+    return DEFAULT_SECTORS_KR
 
 
 class AgentState(TypedDict):
