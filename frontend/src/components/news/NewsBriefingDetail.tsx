@@ -13,6 +13,7 @@ import StreamingSectorCard, {
 } from "@/components/news/StreamingSectorCard";
 import MarketToggle from "@/components/news/MarketToggle";
 import SectorSignalCard from "@/components/news/SectorSignalCard";
+import SearchResultCard from "@/components/news/SearchResultCard";
 import { api } from "@/lib/api";
 import { readSSE } from "@/lib/sse";
 import { useToast } from "@/contexts/ToastContext";
@@ -55,6 +56,27 @@ type TokenEv = {
   text?: string;
 };
 type ErrorEv = { message?: string; market?: MarketCode };
+type SearchResultEv = {
+  market?: MarketCode;
+  sector?: string;
+  snippet?: string;
+  title?: string;
+  url?: string;
+  count?: number;
+};
+
+type SearchResultEntry = {
+  state: "loading" | "done";
+  snippet: string;
+  title: string;
+  url: string;
+  count: number;
+};
+
+const emptySearchResultsMap: Record<MarketCode, Record<string, SearchResultEntry>> = {
+  KR: {},
+  US: {},
+};
 
 interface Props {
   /** 특정 날짜를 강제할 경우 (없으면 latest) */
@@ -194,6 +216,8 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
     useState<Record<MarketCode, { text: string; status: StreamStatus }>>(emptyOverallMap);
   const [sectorOrder, setSectorOrder] =
     useState<Record<MarketCode, string[]>>(emptyOrderMap);
+  const [searchResults, setSearchResults] =
+    useState<Record<MarketCode, Record<string, SearchResultEntry>>>(emptySearchResultsMap);
 
   const loadAnalysis = useCallback(async () => {
     setLoading(true);
@@ -234,6 +258,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
       KR: { text: "", status: "pending" },
       US: { text: "", status: "pending" },
     });
+    setSearchResults({ KR: {}, US: {} });
   }
 
   async function handleRegenerate() {
@@ -289,6 +314,43 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                 xs.map((s) => [s, { text: "", status: "pending" as StreamStatus }]),
               );
             setStreamSectors({ KR: blank(sbm.KR), US: blank(sbm.US) });
+            const blankSearch = (xs: string[]): Record<string, SearchResultEntry> =>
+              Object.fromEntries(
+                xs.map((s) => [
+                  s,
+                  {
+                    state: "loading" as const,
+                    snippet: "",
+                    title: "",
+                    url: "",
+                    count: 0,
+                  },
+                ]),
+              );
+            setSearchResults({
+              KR: blankSearch(sbm.KR),
+              US: blankSearch(sbm.US),
+            });
+            break;
+          }
+          case "search_result": {
+            const data = ev.data as SearchResultEv;
+            const mkt: MarketCode = data.market ?? activeMarket;
+            const sector = data.sector;
+            if (!sector) break;
+            setSearchResults((prev) => ({
+              ...prev,
+              [mkt]: {
+                ...prev[mkt],
+                [sector]: {
+                  state: "done" as const,
+                  snippet: data.snippet ?? "",
+                  title: data.title ?? "",
+                  url: data.url ?? "",
+                  count: data.count ?? 0,
+                },
+              },
+            }));
             break;
           }
           case "node_start": {
@@ -412,6 +474,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
   const activeSectors = sectorOrder[activeMarket];
   const activeStreamSectors = streamSectors[activeMarket];
   const activeStreamOverall = streamOverall[activeMarket];
+  const activeSearchResults = searchResults[activeMarket];
 
   return (
     <PageContainer size="lg">
@@ -476,6 +539,38 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
               </span>
             </div>
 
+            {/* 1단계: 글로벌 데이터 수집 */}
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--color-primary)]">
+              1. 글로벌 데이터 수집
+            </p>
+            <div className="mb-4 flex flex-col gap-2">
+              {activeSectors.map((name) => {
+                const r =
+                  activeSearchResults?.[name] ?? {
+                    state: "loading" as const,
+                    snippet: "",
+                    title: "",
+                    url: "",
+                    count: 0,
+                  };
+                return (
+                  <SearchResultCard
+                    key={`${activeMarket}-search-${name}`}
+                    sector={name}
+                    snippet={r.snippet}
+                    title={r.title}
+                    url={r.url}
+                    count={r.count}
+                    state={r.state}
+                  />
+                );
+              })}
+            </div>
+
+            {/* 2단계: 섹터별 분석 */}
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--color-primary)]">
+              2. 섹터별 분석
+            </p>
             <div className="flex flex-col gap-3">
               {activeSectors.map((name) => {
                 const s = activeStreamSectors[name] ?? {

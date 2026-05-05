@@ -28,7 +28,7 @@ export default function SectorSignalCard({
         <span className="text-[13px] font-extrabold text-[var(--color-text)]">
           {sector.sector_name_ko}
         </span>
-        <SignalIndicator signal={sector.investment_signal} size="sm" />
+        <SignalIndicator signal={sector.investment_signal} size="md" />
       </div>
       <StockRecommendationChips
         stocks={sector.recommended_stocks}
