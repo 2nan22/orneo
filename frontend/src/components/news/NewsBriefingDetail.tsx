@@ -13,8 +13,6 @@ import StreamingSectorCard, {
 } from "@/components/news/StreamingSectorCard";
 import MarketToggle from "@/components/news/MarketToggle";
 import SectorSignalCard from "@/components/news/SectorSignalCard";
-import SignalIndicator from "@/components/news/SignalIndicator";
-import StockRecommendationChips from "@/components/news/StockRecommendationChips";
 import { api } from "@/lib/api";
 import { readSSE } from "@/lib/sse";
 import { useToast } from "@/contexts/ToastContext";
@@ -607,7 +605,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                           title={isEmpty ? "수집된 기사가 없습니다" : undefined}
                         >
                           {s.sector_name_ko}
-                          <span className="ml-1.5 text-[10px] opacity-70">{s.article_count}</span>
+                          <span className="ml-2 text-[10px] opacity-70">{s.article_count}</span>
                         </button>
                       </li>
                     );
@@ -625,21 +623,7 @@ export default function NewsBriefingDetail({ initialDate }: Props) {
                     </p>
                   );
                 }
-                return (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <SignalIndicator
-                        signal={active.investment_signal}
-                        size="md"
-                      />
-                      <StockRecommendationChips
-                        stocks={active.recommended_stocks}
-                        className="flex-1"
-                      />
-                    </div>
-                    <SectorMarkdown text={active.analysis_text} />
-                  </div>
-                );
+                return <SectorMarkdown text={active.analysis_text} />;
               })()}
             </Card>
           )}

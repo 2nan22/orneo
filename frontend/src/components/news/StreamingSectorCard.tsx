@@ -70,6 +70,13 @@ function StatusDot({ status }: { status: StreamStatus }) {
   return <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-border)]" />;
 }
 
+/** LLM이 본문 끝에 덧붙이는 `{"investment_signal":...}` JSON 꼬리를 잘라낸다. */
+function stripSignalJson(text: string): string {
+  const idx = text.lastIndexOf('{"investment_signal"');
+  if (idx === -1) return text;
+  return text.slice(0, idx).trimEnd();
+}
+
 export default function StreamingSectorCard({
   name,
   text,
@@ -79,6 +86,7 @@ export default function StreamingSectorCard({
   signal,
   stocks,
 }: Props) {
+  const displayText = stripSignalJson(text);
   const cardClass =
     status === "pending"
       ? "border-dashed opacity-60"
@@ -125,16 +133,16 @@ export default function StreamingSectorCard({
           )}
         </div>
 
-        <div className="md:flex-1">
+        <div className="min-w-0 md:flex-1">
           {status === "pending" ? (
             <div className="space-y-1">
               <div className="h-2 w-3/4 rounded bg-[var(--color-border)] opacity-50" />
               <div className="h-2 w-1/2 rounded bg-[var(--color-border)] opacity-40" />
             </div>
-          ) : text.trim() ? (
-            <div className="flex flex-col">
+          ) : displayText.trim() ? (
+            <div className="flex flex-col break-words">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-                {text}
+                {displayText}
               </ReactMarkdown>
               {status === "streaming" && (
                 <span className="mt-1 inline-block h-3 w-[2px] animate-pulse bg-[var(--color-primary)]" />
