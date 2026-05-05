@@ -40,18 +40,21 @@ AGGREGATE_SYSTEM = """\
 """
 
 KR_SECTOR_KEYWORDS: dict[str, str] = {
-    "반도체": "반도체 DRAM 낸드 삼성전자 SK하이닉스",
-    "AI":     "AI 인공지능 네이버 카카오 LG AI연구원",
-    "조선":   "조선 해운 현대중공업 삼성중공업 한화오션",
-    "원자재": "원자재 철강 포스코 구리 리튬",
-    "에너지": "에너지 한국전력 SK에너지 발전 원전",
-    "금융":   "금융 은행 KB 신한 하나 증시",
+    "반도체":      "반도체 DRAM 낸드 삼성전자 SK하이닉스",
+    "AI":          "AI 인공지능 네이버 카카오 LG AI연구원",
+    "자동차":      "자동차 현대차 기아 하이브리드 전기차",
+    "조선":        "조선 해운 현대중공업 삼성중공업 한화오션 LNG",
+    "제약/바이오": "제약 바이오 셀트리온 삼성바이오로직스 신약",
+    "에너지":      "에너지 한국전력 SK에너지 발전 원전 SMR",
+    "금융":        "금융 은행 KB 신한 하나 증시 밸류업",
 }
 US_SECTOR_KEYWORDS: dict[str, str] = {
-    "반도체": "semiconductor chip TSMC NVIDIA AMD",
-    "AI":     "AI artificial intelligence OpenAI Google",
-    "에너지": "energy oil gas Exxon Chevron",
-    "금융":   "finance banking JPMorgan Goldman Fed",
+    "빅테크":     "big tech Apple Microsoft Alphabet Meta",
+    "AI/반도체":  "semiconductor chip TSMC NVIDIA AMD AI",
+    "전기차":     "EV electric vehicle Tesla Rivian Lucid BYD",
+    "헬스케어":   "healthcare biotech Eli Lilly Novo Nordisk GLP-1",
+    "에너지":     "energy oil gas Exxon Chevron utility",
+    "금융":       "finance banking JPMorgan Goldman Fed",
 }
 DEFAULT_SECTORS = list(KR_SECTOR_KEYWORDS.keys())
 
